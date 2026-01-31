@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Geometry</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: Georgia, serif;
+            color: #fff;
+        }
+        #container { width: 100vw; height: 100vh; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 24px;
+            border-radius: 10px;
+            max-width: 300px;
+            border: 1px solid #333;
+        }
+        #info h1 {
+            font-size: 20px;
+            margin-bottom: 6px;
+            color: #fff;
+            font-style: italic;
+        }
+        #info .equation {
+            font-size: 28px;
+            color: #ffd166;
+            margin: 12px 0;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        #info p {
+            font-size: 11px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            color: #999;
+        }
+        #info .label { color: #ccc; font-size: 10px; margin-top: 14px; border-top: 1px solid #333; padding-top: 10px; }
+        .gold { color: #ffd166; }
+        .cyan { color: #4ecdc4; }
+        .red { color: #ff6b6b; }
+        .green { color: #00ff88; }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            font-size: 11px;
+        }
+        #controls label { display: block; margin: 6px 0; color: #999; }
+        #controls input[type="range"] { width: 160px; vertical-align: middle; }
+        #controls input[type="checkbox"] { vertical-align: middle; margin-right: 5px; }
+        #controls .hint { color: #666; font-size: 9px; margin-top: 2px; }
+        #readout {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 16px 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            font-size: 13px;
+            min-width: 220px;
+        }
+        #readout .val { color: #ffd166; font-size: 16px; font-weight: bold; }
+        #readout .lbl { color: #999; font-size: 10px; margin-top: 8px; }
+        #graphCanvas {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            border-radius: 8px;
+            border: 1px solid #333;
+            padding: 10px;
+        }
+        .callout-label {
+            position: absolute;
+            pointer-events: none;
+            font-family: Georgia, serif;
+            font-size: 11px;
+            white-space: nowrap;
+            text-shadow: 0 0 8px rgba(0,0,0,0.95);
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <!-- 3D callout labels positioned via JS -->
+    <div id="maxExpLabel" class="callout-label" style="color:#ff8c00;">Max expansion — 13.787 billion years</div>
+    <div id="pinchLabel" class="callout-label" style="color:#ffffff;">t = 0</div>
+    <div id="herculesLabel" class="callout-label" style="color:#ff6b6b;">Hercules-Corona Borealis Wall</div>
+    <div id="ehLabel" class="callout-label" style="color:#8866ff; font-size:10px;">Cosmic event horizon</div>
+    <div id="grbRingLabel" class="callout-label" style="color:#ffdd44; font-size:9px;">Giant GRB Ring</div>
+    <div id="bossLabel" class="callout-label" style="color:#88ff44; font-size:9px;">BOSS Great Wall</div>
+    <div id="sloanLabel" class="callout-label" style="color:#ff88ff; font-size:9px;">Sloan Great Wall</div>
+
+    <div id="info">
+        <h1>Universal Geometry</h1>
+        <div class="equation">d = t · φ⁴</div>
+        <p>A variable cross-section torus where every proportion is governed by the golden ratio φ.</p>
+        <p><span class="green">● Cross-section disc:</span> The observable universe at a given moment — a 2D slice through the structure at any point along the spine.</p>
+        <div class="label">
+            Major radius: R<br>
+            Max cross-section: R / φ²<br>
+            Min cross-section: R / φ¹⁰<br>
+            Cross-section profile: sin(t/2)<sup>φ²</sup><br>
+            <br>Drag to rotate · Scroll to zoom<br>Right-click drag to pan<br>Press S to toggle UI
+        </div>
+    </div>
+
+    <div id="readout">
+        <div class="lbl">Time</div>
+        <div class="val" id="timeText">0.000 billion years</div>
+        <div class="lbl">Diameter (observable universe)</div>
+        <div class="val" id="diamText">0.000 billion light-years</div>
+        <div class="lbl">Lookback distance</div>
+        <div class="val" id="lookbackText">13.787 billion light-years</div>
+    </div>
+
+    <div id="narration" style="position:fixed; bottom:8%; left:50%; transform:translateX(-50%);
+        font-size:24px; color:rgba(255,255,255,0.85); font-style:italic; letter-spacing:2px;
+        text-shadow:0 0 20px rgba(100,200,255,0.5); pointer-events:none; opacity:0;
+        transition:opacity 1.5s; z-index:20;"></div>
+
+    <canvas id="graphCanvas" width="354" height="310"></canvas>
+
+    <div id="controls">
+        <label>Auto-Rotate: <input type="range" id="rotationSpeed" min="0" max="50" value="1"></label>
+        <label>Time: <input type="range" id="discSlider" min="0" max="100000" value="0" step="1"> <span id="sliderLabel">0.000</span></label>
+        <div class="hint">Drag to progress time</div>
+        <label><input type="checkbox" id="showWireframe" checked> Wireframe</label>
+        <label><input type="checkbox" id="showStructures" checked> Structures & Markers</label>
+        <label><input type="checkbox" id="soundToggle"> Sound</label>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050510);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        const PHI = (1 + Math.sqrt(5)) / 2;
+        const PHI4 = Math.pow(PHI, 4); // ~6.854
+        const MAX_TIME_GYR = 13.787;
+
+        let isDragging = false;
+        let isPanning = false;
+        // Camera: theta=-PI/2, looking from below so time flows down from pinch
+        let spherical = { theta: -Math.PI / 2, phi: Math.PI / 1.6, radius: 38 };
+        let lookAt = new THREE.Vector3(0, 0, 0);
+        let lastMouse = { x: 0, y: 0 };
+
+        document.addEventListener('mousedown', (e) => {
+            // Ignore if clicking on UI controls
+            if (e.target.closest('#controls, #readout, #graphCanvas')) return;
+            // Right-click or shift+click = pan, left-click = orbit
+            if (e.button === 2 || e.shiftKey) {
+                isPanning = true;
+            } else {
+                isDragging = true;
+            }
+            lastMouse = { x: e.clientX, y: e.clientY };
+        });
+        document.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+        document.addEventListener('mousemove', (e) => {
+            const dx = e.clientX - lastMouse.x;
+            const dy = e.clientY - lastMouse.y;
+            if (isDragging) {
+                spherical.theta += dx * 0.005;
+                spherical.phi += dy * 0.005;
+                spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, spherical.phi));
+            }
+            if (isPanning) {
+                // Pan: move lookAt target in camera-relative up/right directions
+                const panSpeed = spherical.radius * 0.001;
+                const right = new THREE.Vector3();
+                const up = new THREE.Vector3();
+                camera.getWorldDirection(new THREE.Vector3());
+                right.crossVectors(camera.up, new THREE.Vector3().subVectors(lookAt, camera.position)).normalize();
+                up.copy(camera.up);
+                lookAt.addScaledVector(right, dx * panSpeed);
+                lookAt.addScaledVector(up, -dy * panSpeed);
+            }
+            lastMouse = { x: e.clientX, y: e.clientY };
+        });
+        document.addEventListener('wheel', (e) => {
+            spherical.radius += e.deltaY * 0.03;
+            spherical.radius = Math.max(3, Math.min(80, spherical.radius));
+        });
+
+        // --- Phi-governed geometry ---
+        const R = 12; // major radius
+        const MAX_CROSS = R / (PHI * PHI);
+        const MIN_CROSS = MAX_CROSS / Math.pow(PHI, 8);
+
+        function getCrossRadius(t) {
+            const s = Math.sin(t / 2);
+            return MIN_CROSS + (MAX_CROSS - MIN_CROSS) * Math.pow(s, PHI * PHI);
+        }
+
+        // Inverse: given time in Gyr, find torus parameter via binary search
+        function timeToTorusParam(timeGyr) {
+            const targetRatio = timeGyr / MAX_TIME_GYR;
+            let lo = 0, hi = Math.PI;
+            for (let i = 0; i < 50; i++) {
+                const mid = (lo + hi) / 2;
+                if ((getCrossRadius(mid) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS) > targetRatio) hi = mid;
+                else lo = mid;
+            }
+            return (lo + hi) / 2;
+        }
+
+        // --- Conformal time mapping: η = ∫dt/a(t) where a(t) = getCrossRadius(t) ---
+        // Precompute lookup table: conformal fraction (0→1) → torus parameter (0→PI)
+        const CONF_STEPS = 2000;
+        const conformalEta = new Float64Array(CONF_STEPS + 1); // cumulative η at each step
+        const conformalT = new Float64Array(CONF_STEPS + 1);   // torus param at each step
+        (function buildConformalTable() {
+            const dt = Math.PI / CONF_STEPS;
+            conformalEta[0] = 0;
+            conformalT[0] = 0;
+            for (let i = 1; i <= CONF_STEPS; i++) {
+                const t = i * dt;
+                const a = getCrossRadius(t);
+                // Use midpoint rule; clamp a to avoid division by near-zero
+                const aMid = getCrossRadius(t - dt / 2);
+                conformalEta[i] = conformalEta[i - 1] + dt / Math.max(aMid, 0.001);
+                conformalT[i] = t;
+            }
+        })();
+        const totalEta = conformalEta[CONF_STEPS];
+
+        function conformalToTorus(frac) {
+            // frac in [0,1] → torus parameter via conformal time lookup
+            const targetEta = frac * totalEta;
+            // Binary search in conformalEta table
+            let lo = 0, hi = CONF_STEPS;
+            while (hi - lo > 1) {
+                const mid = (lo + hi) >> 1;
+                if (conformalEta[mid] > targetEta) hi = mid;
+                else lo = mid;
+            }
+            // Linear interpolation between lo and hi
+            const etaLo = conformalEta[lo], etaHi = conformalEta[hi];
+            const blend = (etaHi > etaLo) ? (targetEta - etaLo) / (etaHi - etaLo) : 0;
+            return conformalT[lo] + blend * (conformalT[hi] - conformalT[lo]);
+        }
+
+        // --- Build torus surface geometry ---
+        function createSurface() {
+            const torusSegs = 256;
+            const tubeSegs = 32;
+            const vertices = [];
+            const indices = [];
+            const normals = [];
+
+            for (let i = 0; i <= torusSegs; i++) {
+                const t = (i / torusSegs) * Math.PI * 2;
+                const cx = Math.cos(t) * R;
+                const cz = Math.sin(t) * R;
+                const cr = getCrossRadius(t);
+                const rx = Math.cos(t);
+                const rz = Math.sin(t);
+
+                for (let j = 0; j <= tubeSegs; j++) {
+                    const theta = (j / tubeSegs) * Math.PI * 2;
+                    const cosT = Math.cos(theta);
+                    const sinT = Math.sin(theta);
+
+                    const x = cx + rx * cosT * cr;
+                    const y = sinT * cr;
+                    const z = cz + rz * cosT * cr;
+                    vertices.push(x, y, z);
+
+                    const nx = rx * cosT;
+                    const ny = sinT;
+                    const nz = rz * cosT;
+                    normals.push(nx, ny, nz);
+                }
+            }
+
+            for (let i = 0; i < torusSegs; i++) {
+                for (let j = 0; j < tubeSegs; j++) {
+                    const a = i * (tubeSegs + 1) + j;
+                    const b = a + tubeSegs + 1;
+                    indices.push(a, b, a + 1);
+                    indices.push(b, b + 1, a + 1);
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            geo.setIndex(indices);
+
+            const surfaceMat = new THREE.MeshPhongMaterial({
+                color: 0x1a2a4a,
+                transparent: true,
+                opacity: 0.35,
+                side: THREE.DoubleSide,
+                shininess: 40,
+                specular: 0x334466
+            });
+            const surface = new THREE.Mesh(geo, surfaceMat);
+
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x4ecdc4,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.12
+            });
+            const wire = new THREE.Mesh(geo.clone(), wireMat);
+
+            return { surface, wire };
+        }
+
+        // --- Max expansion ring (orange) ---
+        function createMaxExpansionRing() {
+            const ringSegs = 64;
+            const t = Math.PI;
+            const cr = getCrossRadius(t);
+            const cx = Math.cos(t) * R;
+            const cz = Math.sin(t) * R;
+            const rx = Math.cos(t);
+            const rz = Math.sin(t);
+
+            const pts = [];
+            for (let j = 0; j <= ringSegs; j++) {
+                const theta = (j / ringSegs) * Math.PI * 2;
+                pts.push(new THREE.Vector3(
+                    cx + rx * Math.cos(theta) * cr,
+                    Math.sin(theta) * cr,
+                    cz + rz * Math.cos(theta) * cr
+                ));
+            }
+
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = new THREE.LineBasicMaterial({
+                color: 0xff8c00,
+                transparent: true,
+                opacity: 0.9
+            });
+            return new THREE.Line(geo, mat);
+        }
+
+        // --- Spine ---
+        function createSpine() {
+            const pts = [];
+            const colors = [];
+            for (let i = 0; i <= 256; i++) {
+                const t = (i / 256) * Math.PI * 2;
+                pts.push(new THREE.Vector3(Math.cos(t) * R, 0, Math.sin(t) * R));
+                const progress = t / (Math.PI * 2);
+                const d = Math.min(progress, 1 - progress);
+                const b = 0.3 + 0.7 * (1 - Math.min(d * 3, 1));
+                colors.push(b, b * 0.3, b * 0.3);
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            const mat = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9
+            });
+            return new THREE.Line(geo, mat);
+        }
+
+        // --- Pinch marker: white sun with starburst cone rays ---
+        function createPinchMarker() {
+            const group = new THREE.Group();
+
+            // Bright core sphere — tiny sun
+            const coreGeo = new THREE.SphereGeometry(0.06, 32, 32);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.position.set(R, 0, 0);
+            group.add(core); // [0]
+
+            // Inner glow
+            const glow1Geo = new THREE.SphereGeometry(0.15, 32, 32);
+            const glow1Mat = new THREE.MeshBasicMaterial({
+                color: 0xffffee, transparent: true, opacity: 0.6, depthWrite: false
+            });
+            const glow1 = new THREE.Mesh(glow1Geo, glow1Mat);
+            glow1.position.set(R, 0, 0);
+            group.add(glow1); // [1]
+
+            // Outer glow
+            const glow2Geo = new THREE.SphereGeometry(0.35, 32, 32);
+            const glow2Mat = new THREE.MeshBasicMaterial({
+                color: 0xffeedd, transparent: true, opacity: 0.2, depthWrite: false
+            });
+            const glow2 = new THREE.Mesh(glow2Geo, glow2Mat);
+            glow2.position.set(R, 0, 0);
+            group.add(glow2); // [2]
+
+            // Starburst — many narrow cone-shaped spikes via canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const ccx = 256, ccy = 256;
+
+            // Bright central bloom
+            const bloomGrad = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, 40);
+            bloomGrad.addColorStop(0, 'rgba(255,255,255,1)');
+            bloomGrad.addColorStop(0.3, 'rgba(255,255,240,0.6)');
+            bloomGrad.addColorStop(0.7, 'rgba(255,250,220,0.15)');
+            bloomGrad.addColorStop(1, 'rgba(255,245,200,0)');
+            ctx.fillStyle = bloomGrad;
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Layer 1: 24 long primary spikes
+            const numPrimary = 24;
+            for (let i = 0; i < numPrimary; i++) {
+                const angle = (i / numPrimary) * Math.PI * 2;
+                const tipDist = 252;
+                const tipX = ccx + Math.cos(angle) * tipDist;
+                const tipY = ccy + Math.sin(angle) * tipDist;
+                const spread = 0.025;
+                const baseR = 12;
+                const bx1 = ccx + Math.cos(angle - spread) * baseR;
+                const by1 = ccy + Math.sin(angle - spread) * baseR;
+                const bx2 = ccx + Math.cos(angle + spread) * baseR;
+                const by2 = ccy + Math.sin(angle + spread) * baseR;
+
+                const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.08, 'rgba(255,255,240,0.8)');
+                grad.addColorStop(0.25, 'rgba(255,250,220,0.35)');
+                grad.addColorStop(0.6, 'rgba(255,245,200,0.08)');
+                grad.addColorStop(1, 'rgba(255,240,180,0)');
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(bx1, by1);
+                ctx.lineTo(tipX, tipY);
+                ctx.lineTo(bx2, by2);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Layer 2: 24 medium intermediate spikes
+            for (let i = 0; i < numPrimary; i++) {
+                const angle = ((i + 0.5) / numPrimary) * Math.PI * 2;
+                const tipDist = 170;
+                const tipX = ccx + Math.cos(angle) * tipDist;
+                const tipY = ccy + Math.sin(angle) * tipDist;
+                const spread = 0.02;
+                const baseR = 8;
+                const bx1 = ccx + Math.cos(angle - spread) * baseR;
+                const by1 = ccy + Math.sin(angle - spread) * baseR;
+                const bx2 = ccx + Math.cos(angle + spread) * baseR;
+                const by2 = ccy + Math.sin(angle + spread) * baseR;
+
+                const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
+                grad.addColorStop(0, 'rgba(255,255,250,0.7)');
+                grad.addColorStop(0.3, 'rgba(255,248,225,0.2)');
+                grad.addColorStop(1, 'rgba(255,240,200,0)');
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(bx1, by1);
+                ctx.lineTo(tipX, tipY);
+                ctx.lineTo(bx2, by2);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Layer 3: 48 tiny spikes for texture
+            for (let i = 0; i < 48; i++) {
+                const angle = (i / 48) * Math.PI * 2 + 0.03;
+                const tipDist = 90 + Math.random() * 60;
+                const tipX = ccx + Math.cos(angle) * tipDist;
+                const tipY = ccy + Math.sin(angle) * tipDist;
+                const spread = 0.012;
+                const baseR = 6;
+                const bx1 = ccx + Math.cos(angle - spread) * baseR;
+                const by1 = ccy + Math.sin(angle - spread) * baseR;
+                const bx2 = ccx + Math.cos(angle + spread) * baseR;
+                const by2 = ccy + Math.sin(angle + spread) * baseR;
+
+                const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
+                grad.addColorStop(0, 'rgba(255,255,245,0.4)');
+                grad.addColorStop(1, 'rgba(255,240,200,0)');
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(bx1, by1);
+                ctx.lineTo(tipX, tipY);
+                ctx.lineTo(bx2, by2);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            const spriteTex = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({
+                map: spriteTex, transparent: true, opacity: 1.0,
+                depthWrite: false, depthTest: true
+            });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.position.set(R, 0, 0);
+            sprite.scale.set(14, 14, 1);
+            group.add(sprite); // [3]
+
+
+            return group;
+        }
+
+        // --- Draggable cross-section disc ---
+        let discGroup = new THREE.Group();
+        let ehLabelWorldPos = new THREE.Vector3();
+        let ehLabelVisible = false;
+
+        function updateDisc(t) {
+
+            while (discGroup.children.length > 0) {
+                const child = discGroup.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+                discGroup.remove(child);
+            }
+
+            // Always show disc but clamp to minimum meaningful size
+            if (t < 0.02) { discGroup.visible = false; return; }
+            discGroup.visible = true;
+            const discFadeIn = Math.min(1, t / 0.5);
+
+            // Clamp cross-radius to zero near pinch so disc grows from nothing
+            const rawCr = getCrossRadius(t);
+            const cr = rawCr * discFadeIn;
+            const cx = Math.cos(t) * R;
+            const cz = Math.sin(t) * R;
+            const rx = Math.cos(t);
+            const rz = Math.sin(t);
+
+            // Build disc from edge points on the torus cross-section
+            const center = new THREE.Vector3(cx, 0, cz);
+            const edgePts = [];
+            for (let i = 0; i <= 64; i++) {
+                const a = (i / 64) * Math.PI * 2;
+                const cosA = Math.cos(a);
+                const sinA = Math.sin(a);
+                edgePts.push(new THREE.Vector3(
+                    cx + rx * cosA * cr,
+                    sinA * cr,
+                    cz + rz * cosA * cr
+                ));
+            }
+
+            // Filled disc as triangle fan from center to edge (hugs torus)
+            const fillVerts = [];
+            for (let i = 0; i < 64; i++) {
+                fillVerts.push(center.x, center.y, center.z);
+                fillVerts.push(edgePts[i].x, edgePts[i].y, edgePts[i].z);
+                fillVerts.push(edgePts[i + 1].x, edgePts[i + 1].y, edgePts[i + 1].z);
+            }
+            const fillGeo = new THREE.BufferGeometry();
+            fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(fillVerts, 3));
+            const fillMat = new THREE.MeshBasicMaterial({
+                color: 0x00ff88, transparent: true, opacity: 0.15 * discFadeIn,
+                side: THREE.DoubleSide, depthWrite: false
+            });
+            discGroup.add(new THREE.Mesh(fillGeo, fillMat));
+
+            // Edge ring
+            const edgeGeo = new THREE.BufferGeometry().setFromPoints(edgePts);
+            const edgeMat = new THREE.LineBasicMaterial({
+                color: 0x00ff88,
+                transparent: true,
+                opacity: 0.6 * discFadeIn
+            });
+            discGroup.add(new THREE.Line(edgeGeo, edgeMat));
+
+            const dotGeo = new THREE.SphereGeometry(0.08, 12, 12);
+            const dotMat = new THREE.MeshBasicMaterial({ color: 0xff6666, transparent: true, opacity: 0.9 });
+            const dot = new THREE.Mesh(dotGeo, dotMat);
+            dot.position.set(cx, 0, cz);
+            discGroup.add(dot);
+
+            // Cosmic event horizon ring — only at max expansion (slider at max)
+            const timeAtDisc = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+            const universeDiam = timeAtDisc * PHI4;
+            const atMaxExpansion = timeAtDisc > MAX_TIME_GYR * 0.99;
+            if (atMaxExpansion && universeDiam > 0) {
+                const EVENT_HORIZON_BLY = 16.5;
+                const ehFraction = (EVENT_HORIZON_BLY * 2) / universeDiam;
+                const ehModelR = cr * Math.min(ehFraction, 1);
+
+                if (ehFraction < 1) {
+                    for (let ring = 0; ring < 3; ring++) {
+                        const offset = (ring - 1) * 0.02;
+                        const ringR = ehModelR * (1 + offset);
+                        const ehPts = [];
+                        for (let i = 0; i <= 64; i++) {
+                            const a = (i / 64) * Math.PI * 2;
+                            ehPts.push(new THREE.Vector3(
+                                cx + rx * Math.cos(a) * ringR,
+                                Math.sin(a) * ringR,
+                                cz + rz * Math.cos(a) * ringR
+                            ));
+                        }
+                        const ehGeo = new THREE.BufferGeometry().setFromPoints(ehPts);
+                        const ehMat = new THREE.LineBasicMaterial({
+                            color: 0x8866ff,
+                            transparent: true,
+                            opacity: 0.9
+                        });
+                        discGroup.add(new THREE.Line(ehGeo, ehMat));
+                    }
+
+                    ehLabelWorldPos.set(cx, ehModelR + 0.3, cz);
+                    ehLabelVisible = true;
+                } else {
+                    ehLabelVisible = false;
+                }
+            } else {
+                ehLabelVisible = false;
+            }
+        }
+
+
+        // --- Hercules-Corona Borealis Great Wall — funneling spiral tube ---
+        // Spiral tube that starts close to spine and spirals outward (funnel shape)
+        // t ≈ 3.4–4.2 Gyr, ~10 Bly extent, ~1 Bly thickness
+        const HERCULES_T_START = 3.4;
+        const HERCULES_T_END = 4.2;
+        const HERCULES_SIZE_BLY = 10;
+        const HERCULES_THICK_BLY = 1;
+        let herculesLabelPos = new THREE.Vector3();
+
+        function createHerculesRegion() {
+            const group = new THREE.Group();
+            const tStart = timeToTorusParam(HERCULES_T_START);
+            const tEnd = timeToTorusParam(HERCULES_T_END);
+            const tMid = timeToTorusParam((HERCULES_T_START + HERCULES_T_END) / 2);
+
+            herculesLabelPos.set(Math.cos(tMid) * R, 0, Math.sin(tMid) * R);
+
+            // Spiral centerline that funnels outward from spine
+            const spiralWinds = 2.5;
+            const spineSegs = 200;
+            const tubeSegs = 8;
+            const spiralPts = [];
+
+            for (let i = 0; i <= spineSegs; i++) {
+                const frac = i / spineSegs;
+                const t = tStart + frac * (tEnd - tStart);
+                const cr = getCrossRadius(t);
+                const cx = Math.cos(t) * R;
+                const cz = Math.sin(t) * R;
+                const rx = Math.cos(t);
+                const rz = Math.sin(t);
+
+                const timeAtT = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+                const universeDiam = timeAtT * PHI4;
+
+                // Funnel: orbit radius grows from near-spine to ~5 Bly (half of 10 Bly)
+                // frac 0→1 maps orbit from ~0.5 Bly to ~5 Bly
+                const minOrbitBly = 0.5;
+                const maxOrbitBly = HERCULES_SIZE_BLY / 2;
+                const orbitBly = minOrbitBly + (maxOrbitBly - minOrbitBly) * frac;
+                const orbitFraction = orbitBly / universeDiam;
+                const orbitModelR = cr * orbitFraction;
+
+                const spiralAngle = frac * spiralWinds * Math.PI * 2;
+
+                spiralPts.push(new THREE.Vector3(
+                    cx + rx * Math.cos(spiralAngle) * orbitModelR,
+                    Math.sin(spiralAngle) * orbitModelR,
+                    cz + rz * Math.cos(spiralAngle) * orbitModelR
+                ));
+            }
+
+            // Build tube around spiral centerline
+            const vertices = [];
+            const indices = [];
+
+            for (let i = 0; i <= spineSegs; i++) {
+                const p = spiralPts[i];
+                const pPrev = spiralPts[Math.max(0, i - 1)];
+                const pNext = spiralPts[Math.min(spineSegs, i + 1)];
+                const tangent = new THREE.Vector3().subVectors(pNext, pPrev).normalize();
+
+                let up = new THREE.Vector3(0, 1, 0);
+                if (Math.abs(tangent.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
+                const binormal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+                const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+
+                // Tube radius = 1 Bly thickness, scaled to model
+                const frac = i / spineSegs;
+                const t = tStart + frac * (tEnd - tStart);
+                const cr = getCrossRadius(t);
+                const timeAtT = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+                const universeDiam = timeAtT * PHI4;
+                const tubeR = cr * (HERCULES_THICK_BLY / universeDiam);
+
+                for (let j = 0; j <= tubeSegs; j++) {
+                    const theta = (j / tubeSegs) * Math.PI * 2;
+                    const offset = new THREE.Vector3()
+                        .addScaledVector(normal, Math.cos(theta) * tubeR)
+                        .addScaledVector(binormal, Math.sin(theta) * tubeR);
+                    vertices.push(p.x + offset.x, p.y + offset.y, p.z + offset.z);
+                }
+            }
+
+            for (let i = 0; i < spineSegs; i++) {
+                for (let j = 0; j < tubeSegs; j++) {
+                    const a = i * (tubeSegs + 1) + j;
+                    const b = a + tubeSegs + 1;
+                    indices.push(a, b, a + 1);
+                    indices.push(b, b + 1, a + 1);
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0xff6b6b,
+                transparent: true,
+                opacity: 0.35,
+                side: THREE.DoubleSide
+            });
+            group.add(new THREE.Mesh(geo, mat));
+
+            // Spiral centerline
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(spiralPts);
+            const lineMat = new THREE.LineBasicMaterial({
+                color: 0xff6b6b, transparent: true, opacity: 0.7
+            });
+            group.add(new THREE.Line(lineGeo, lineMat));
+
+            return group;
+        }
+
+        // --- Additional cosmic structures as colored bands on the torus ---
+        // Each structure: { name, tStartGyr, tEndGyr, sizeBly, color }
+        const cosmicStructures = [
+            { name: 'Giant GRB Ring', tStartGyr: 6.6, tEndGyr: 6.9, sizeBly: 5.6, color: 0xffdd44, labelColor: '#ffdd44' },
+            { name: 'BOSS Great Wall', tStartGyr: 9.0, tEndGyr: 9.4, sizeBly: 1.0, color: 0x88ff44, labelColor: '#88ff44' },
+            { name: 'Sloan Great Wall', tStartGyr: 12.3, tEndGyr: 12.7, sizeBly: 1.38, color: 0xff88ff, labelColor: '#ff88ff' },
+        ];
+
+        const structureLabelPositions = [];
+        const structuresGroup = new THREE.Group();
+        scene.add(structuresGroup);
+
+        cosmicStructures.forEach(s => {
+            const tStart = timeToTorusParam(s.tStartGyr);
+            const tEnd = timeToTorusParam(s.tEndGyr);
+            const tMid = timeToTorusParam((s.tStartGyr + s.tEndGyr) / 2);
+            const midCr = getCrossRadius(tMid);
+            const midCx = Math.cos(tMid) * R;
+            const midCz = Math.sin(tMid) * R;
+
+            structureLabelPositions.push({
+                name: s.name,
+                sizeBly: s.sizeBly,
+                tStartGyr: s.tStartGyr,
+                tEndGyr: s.tEndGyr,
+                tMid,
+                worldPos: new THREE.Vector3(midCx, 0, midCz),
+                color: s.labelColor
+            });
+
+            // Band of rings across the time range
+            const numRings = 8;
+            for (let i = 0; i <= numRings; i++) {
+                const frac = i / numRings;
+                const t = tStart + frac * (tEnd - tStart);
+                const cr = getCrossRadius(t);
+                const cx = Math.cos(t) * R;
+                const cz = Math.sin(t) * R;
+                const rx = Math.cos(t);
+                const rz = Math.sin(t);
+
+                // Scale structure size to model: sizeBly / universeDiam * cr
+                const timeAtT = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+                const universeDiam = timeAtT * PHI4;
+                const structFrac = Math.min(s.sizeBly / universeDiam, 0.9);
+                const ringR = cr * structFrac;
+
+                const pts = [];
+                for (let j = 0; j <= 48; j++) {
+                    const a = (j / 48) * Math.PI * 2;
+                    pts.push(new THREE.Vector3(
+                        cx + rx * Math.cos(a) * ringR,
+                        Math.sin(a) * ringR,
+                        cz + rz * Math.cos(a) * ringR
+                    ));
+                }
+                const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                const mat = new THREE.LineBasicMaterial({
+                    color: s.color, transparent: true, opacity: 0.3
+                });
+                structuresGroup.add(new THREE.Line(geo, mat));
+            }
+        });
+
+        // --- 2D Graph ---
+        const graphCanvas = document.getElementById('graphCanvas');
+        const dpr = window.devicePixelRatio || 1;
+        graphCanvas.width = 354 * dpr;
+        graphCanvas.height = 310 * dpr;
+        graphCanvas.style.width = '354px';
+        graphCanvas.style.height = '310px';
+        const gctx = graphCanvas.getContext('2d');
+        gctx.scale(dpr, dpr);
+        const GW = 354, GH = 310;
+        const gPad = { l: 55, r: 20, t: 75, b: 35 };
+        const gPlotW = GW - gPad.l - gPad.r;
+        const gPlotH = GH - gPad.t - gPad.b;
+
+        function drawGraph(currentTimeGyr) {
+            gctx.clearRect(0, 0, GW * dpr, GH * dpr);
+
+            gctx.strokeStyle = '#555';
+            gctx.lineWidth = 1;
+            gctx.beginPath();
+            gctx.moveTo(gPad.l, gPad.t);
+            gctx.lineTo(gPad.l, gPad.t + gPlotH);
+            gctx.lineTo(gPad.l + gPlotW, gPad.t + gPlotH);
+            gctx.stroke();
+
+            gctx.fillStyle = '#888';
+            gctx.font = '14px Georgia';
+            gctx.textAlign = 'center';
+            gctx.fillText('Time (billion years)', gPad.l + gPlotW / 2, GH - 4);
+            gctx.save();
+            gctx.translate(10, gPad.t + gPlotH / 2);
+            gctx.rotate(-Math.PI / 2);
+            gctx.fillText('d (billion ly)', 0, 0);
+            gctx.restore();
+
+            gctx.fillStyle = '#666';
+            gctx.font = '14px Georgia';
+            gctx.textAlign = 'center';
+            const maxD = MAX_TIME_GYR * PHI4;
+            for (let tg = 0; tg <= MAX_TIME_GYR; tg += 5) {
+                const x = gPad.l + (tg / MAX_TIME_GYR) * gPlotW;
+                gctx.fillText(tg.toFixed(0), x, gPad.t + gPlotH + 12);
+            }
+            gctx.textAlign = 'right';
+            for (let dv = 0; dv <= maxD; dv += 25) {
+                const y = gPad.t + gPlotH - (dv / maxD) * gPlotH;
+                gctx.fillText(dv.toFixed(0), gPad.l - 4, y + 3);
+            }
+
+            // Diameter curve: d = t × φ⁴
+            gctx.strokeStyle = '#ffd166';
+            gctx.lineWidth = 1.5;
+            gctx.beginPath();
+            for (let i = 0; i <= 100; i++) {
+                const tg = (i / 100) * MAX_TIME_GYR;
+                const d = tg * PHI4;
+                const x = gPad.l + (tg / MAX_TIME_GYR) * gPlotW;
+                const y = gPad.t + gPlotH - (d / maxD) * gPlotH;
+                if (i === 0) gctx.moveTo(x, y);
+                else gctx.lineTo(x, y);
+            }
+            gctx.stroke();
+
+            // Comoving distance curve (pure φ formula)
+            // d_comoving = R_max × [A·(1 - x^(1/φ²)) - (1/φ⁴)·(1 - x)]
+            const R_MAX_BLY = MAX_TIME_GYR * PHI4 / 2; // 47.25
+            const COMOVING_A = 1 + 1 / (PHI4 + 1);     // 1.1273
+            const COMOVING_B = 1 / PHI4;                // 0.1459
+            const COMOVING_ALPHA = 1 / (PHI * PHI);     // 0.3820
+            gctx.strokeStyle = '#88ccff';
+            gctx.lineWidth = 1;
+            gctx.setLineDash([4, 2]);
+            gctx.beginPath();
+            for (let i = 0; i <= 100; i++) {
+                const tg = (i / 100) * MAX_TIME_GYR;
+                const xRatio = tg / MAX_TIME_GYR; // r/R_max = t/T
+                const dCom = R_MAX_BLY * (COMOVING_A * (1 - Math.pow(xRatio, COMOVING_ALPHA)) - COMOVING_B * (1 - xRatio));
+                const x = gPad.l + (tg / MAX_TIME_GYR) * gPlotW;
+                const y = gPad.t + gPlotH - (dCom / maxD) * gPlotH;
+                if (i === 0) gctx.moveTo(x, y);
+                else gctx.lineTo(x, y);
+            }
+            gctx.stroke();
+            gctx.setLineDash([]);
+
+            // Title and legend (above plot)
+            gctx.font = 'bold 16px Georgia';
+            gctx.textAlign = 'center';
+            gctx.fillStyle = '#ccc';
+            gctx.fillText('D = T × φ⁴', GW / 2, 20);
+            gctx.font = '14px Georgia';
+            gctx.textAlign = 'left';
+            gctx.fillStyle = '#ffd166';
+            gctx.fillText('— diameter', gPad.l + 3, 42);
+            gctx.fillStyle = '#88ccff';
+            gctx.fillText('--- comoving (φ formula)', gPad.l + 3, 60);
+
+            // Hercules-Corona Borealis Wall — shaded band
+            const hxStart = gPad.l + (HERCULES_T_START / MAX_TIME_GYR) * gPlotW;
+            const hxEnd = gPad.l + (HERCULES_T_END / MAX_TIME_GYR) * gPlotW;
+            gctx.fillStyle = 'rgba(255,107,107,0.15)';
+            gctx.fillRect(hxStart, gPad.t, hxEnd - hxStart, gPlotH);
+            gctx.strokeStyle = 'rgba(255,107,107,0.4)';
+            gctx.lineWidth = 1;
+            gctx.strokeRect(hxStart, gPad.t, hxEnd - hxStart, gPlotH);
+            gctx.fillStyle = '#ff6b6b';
+            gctx.font = '11px Georgia';
+            gctx.textAlign = 'center';
+            gctx.save();
+            gctx.translate((hxStart + hxEnd) / 2, gPad.t + gPlotH / 2);
+            gctx.rotate(-Math.PI / 2);
+            gctx.fillText('H-C Wall', 0, 0);
+            gctx.restore();
+
+            // Other cosmic structures on graph
+            const structLabels = ['GRB Ring', 'BOSS Wall', 'Sloan Wall'];
+            cosmicStructures.forEach((s, i) => {
+                const sxStart = gPad.l + (s.tStartGyr / MAX_TIME_GYR) * gPlotW;
+                const sxEnd = gPad.l + (s.tEndGyr / MAX_TIME_GYR) * gPlotW;
+                const hexColor = '#' + s.color.toString(16).padStart(6, '0');
+                gctx.fillStyle = hexColor + '20';
+                gctx.fillRect(sxStart, gPad.t, sxEnd - sxStart, gPlotH);
+                gctx.strokeStyle = hexColor + '66';
+                gctx.lineWidth = 0.5;
+                gctx.strokeRect(sxStart, gPad.t, sxEnd - sxStart, gPlotH);
+                gctx.fillStyle = hexColor;
+                gctx.font = '11px Georgia';
+                gctx.textAlign = 'center';
+                gctx.save();
+                const sx = (sxStart + sxEnd) / 2;
+                gctx.translate(sx, gPad.t + gPlotH / 2);
+                gctx.rotate(-Math.PI / 2);
+                gctx.fillText(structLabels[i], 0, 0);
+                gctx.restore();
+            });
+
+            // Today marker
+            const todayX = gPad.l + gPlotW;
+            const todayY = gPad.t + gPlotH - (93 / maxD) * gPlotH;
+            gctx.fillStyle = '#4ecdc4';
+            gctx.beginPath();
+            gctx.arc(todayX, todayY, 3, 0, Math.PI * 2);
+            gctx.fill();
+            gctx.font = '14px Georgia';
+            gctx.textAlign = 'right';
+            gctx.fillText('Today', todayX - 5, todayY + 3);
+
+            if (currentTimeGyr >= 0) {
+                const x = gPad.l + (Math.min(currentTimeGyr, MAX_TIME_GYR) / MAX_TIME_GYR) * gPlotW;
+                gctx.strokeStyle = 'rgba(0,255,136,0.6)';
+                gctx.lineWidth = 1;
+                gctx.setLineDash([3, 3]);
+                gctx.beginPath();
+                gctx.moveTo(x, gPad.t);
+                gctx.lineTo(x, gPad.t + gPlotH);
+                gctx.stroke();
+                gctx.setLineDash([]);
+            }
+        }
+
+        // --- Lighting ---
+        const ambient = new THREE.AmbientLight(0x334455, 0.6);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 15, 10);
+        scene.add(dirLight);
+        const dirLight2 = new THREE.DirectionalLight(0x4466aa, 0.4);
+        dirLight2.position.set(-10, -5, -10);
+        scene.add(dirLight2);
+
+        // --- Build scene ---
+        const { surface, wire } = createSurface();
+        scene.add(wire);
+
+        const spine = createSpine();
+        scene.add(spine);
+
+        const pinch = createPinchMarker();
+        scene.add(pinch);
+
+        scene.add(discGroup);
+        updateDisc(0); // start at pinch
+
+        const maxExpRing = createMaxExpansionRing();
+        structuresGroup.add(maxExpRing);
+
+        const herculesRegion = createHerculesRegion();
+        structuresGroup.add(herculesRegion);
+
+        // Initial graph
+        drawGraph(0);
+
+        // --- Helper to project 3D → screen ---
+        function projectToScreen(worldPos) {
+            const v = worldPos.clone().project(camera);
+            return {
+                x: (v.x + 1) / 2 * window.innerWidth,
+                y: (-v.y + 1) / 2 * window.innerHeight
+            };
+        }
+
+        // --- Audio: "Om" drone that rises in pitch with time rate ---
+        let audioCtx = null;
+        let omOscillators = [];
+        let masterGain = null;
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0;
+            masterGain.connect(audioCtx.destination);
+
+            // Om = rich layered drone: fundamental + harmonics + slight detuning
+            const baseFreq = 68; // ~C#2, classic om frequency
+            const harmonics = [
+                { freq: baseFreq, gain: 0.35, type: 'sine' },          // fundamental
+                { freq: baseFreq * 2, gain: 0.2, type: 'sine' },       // octave
+                { freq: baseFreq * 3, gain: 0.08, type: 'sine' },      // fifth above octave
+                { freq: baseFreq * 1.002, gain: 0.25, type: 'sine' },  // slight detune = beating
+                { freq: baseFreq * 0.998, gain: 0.25, type: 'sine' },  // slight detune other side
+                { freq: baseFreq * 4, gain: 0.04, type: 'triangle' },  // shimmer
+                { freq: baseFreq * 0.5, gain: 0.15, type: 'sine' },    // sub-bass
+            ];
+            harmonics.forEach(h => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = h.type;
+                osc.frequency.value = h.freq;
+                g.gain.value = h.gain;
+                osc.connect(g);
+                g.connect(masterGain);
+                osc.start();
+                omOscillators.push({ osc, gain: g, baseFreq: h.freq, baseGain: h.gain });
+            });
+        }
+        // Start audio on first user interaction
+        document.addEventListener('mousedown', () => initAudio(), { once: true });
+        document.addEventListener('touchstart', () => initAudio(), { once: true });
+
+
+        // --- Animate ---
+        const discSlider = document.getElementById('discSlider');
+        let sliderDragging = false;
+        let prevSliderFrac = 0;
+        discSlider.addEventListener('mousedown', () => sliderDragging = true);
+        discSlider.addEventListener('touchstart', () => sliderDragging = true);
+        window.addEventListener('mouseup', () => sliderDragging = false);
+        window.addEventListener('touchend', () => sliderDragging = false);
+
+        // Screenshot mode — press S to toggle all UI
+        let screenshotMode = false;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 's' || e.key === 'S') {
+                screenshotMode = !screenshotMode;
+                const els = ['info', 'readout', 'controls', 'graphCanvas', 'narration'];
+                els.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = screenshotMode ? 'none' : '';
+                });
+            }
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!sliderDragging) {
+                const rotateSpeed = document.getElementById('rotationSpeed').value / 12000;
+                spherical.theta += rotateSpeed;
+            }
+
+            camera.position.x = lookAt.x + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+            camera.position.y = lookAt.y + spherical.radius * Math.cos(spherical.phi);
+            camera.position.z = lookAt.z + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+            camera.lookAt(lookAt);
+
+            wire.visible = document.getElementById('showWireframe').checked;
+            const showStructs = document.getElementById('showStructures').checked;
+            structuresGroup.visible = showStructs;
+            spine.visible = true;
+            // discGroup.visible is managed by updateDisc() to prevent fly-in at t=0
+
+            // Pinch sun pulse — gentle breathing glow
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.002);
+            pinch.children[1].material.opacity = 0.3 + pulse * 0.15; // inner glow
+            pinch.children[2].material.opacity = 0.1 + pulse * 0.1;  // outer glow
+            pinch.children[3].material.opacity = 0.6 + pulse * 0.25; // corona sprite
+
+            // Update disc from slider — linear in conformal time η = ∫dt/a(t)
+            const sliderFrac = parseFloat(discSlider.value) / 100000.0;
+            const tParam = conformalToTorus(sliderFrac);
+            updateDisc(tParam);
+
+            const crossR = getCrossRadius(tParam);
+            const timeGyr = ((crossR - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+            const diameter = timeGyr * PHI4;
+
+            // Time rate: proportional to cross-sectional AREA (radius²)
+            // Area grows as square of scale factor — this is the physical rate
+            const aMin = getCrossRadius(0.001); // near-zero baseline
+            const radiusRatio = crossR / aMin;
+            const timeRate = Math.max(1, radiusRatio * radiusRatio); // area ratio
+
+            // Audio: om drone always on when sound enabled, pitch rises with time rate
+            const soundOn = document.getElementById('soundToggle').checked;
+            if (audioCtx && masterGain && soundOn && sliderFrac > 0.001) {
+                const pitchMult = Math.pow(timeRate, 0.12);
+                omOscillators.forEach(h => {
+                    h.osc.frequency.setTargetAtTime(h.baseFreq * pitchMult, audioCtx.currentTime, 0.08);
+                });
+                masterGain.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.15);
+            } else if (audioCtx && masterGain) {
+                masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
+            }
+
+            // Narration: "time speeds up" or "time slows" based on drag direction
+            const narEl = document.getElementById('narration');
+            if (sliderDragging && sliderFrac > 0.01) {
+                const delta = sliderFrac - prevSliderFrac;
+                if (delta > 0.00001) narEl.textContent = 'time speeds up';
+                else if (delta < -0.00001) narEl.textContent = 'time slows';
+                if (Math.abs(delta) > 0.00001) {
+                    narEl.style.opacity = 1;
+                }
+            }
+            if (!sliderDragging || sliderFrac <= 0.01) {
+                narEl.style.opacity = 0;
+            }
+            prevSliderFrac = sliderFrac;
+
+            document.getElementById('sliderLabel').textContent = timeGyr.toFixed(3);
+            document.getElementById('timeText').textContent = timeGyr.toFixed(3) + ' billion years';
+            document.getElementById('diamText').textContent = diameter.toFixed(3) + ' billion light-years';
+            document.getElementById('lookbackText').textContent = (MAX_TIME_GYR - timeGyr).toFixed(3) + ' billion light-years';
+
+            drawGraph(timeGyr);
+
+            // Position max expansion label
+            const mel = document.getElementById('maxExpLabel');
+            if (showStructs) {
+                const maxExpPos = projectToScreen(new THREE.Vector3(-R, MAX_CROSS + 0.8, 0));
+                mel.style.left = maxExpPos.x + 'px';
+                mel.style.top = maxExpPos.y + 'px';
+                mel.style.display = 'block';
+            } else {
+                mel.style.display = 'none';
+            }
+
+            // Position pinch label
+            const pinchPos = projectToScreen(new THREE.Vector3(R, 0.8, 0));
+            const pl = document.getElementById('pinchLabel');
+            if (showStructs) {
+                pl.style.left = pinchPos.x + 'px';
+                pl.style.top = pinchPos.y + 'px';
+                pl.style.display = 'block';
+            } else {
+                pl.style.display = 'none';
+            }
+
+            // Position Hercules Wall label
+            const hwl = document.getElementById('herculesLabel');
+            if (showStructs) {
+                const hwPos = projectToScreen(new THREE.Vector3(herculesLabelPos.x, getCrossRadius(timeToTorusParam(3.8)) + 0.8, herculesLabelPos.z));
+                hwl.style.left = (hwPos.x - 120) + 'px';
+                hwl.style.top = hwPos.y + 'px';
+                hwl.style.display = 'block';
+            } else {
+                hwl.style.display = 'none';
+            }
+
+            // Position event horizon label
+            const ehl = document.getElementById('ehLabel');
+            if (ehLabelVisible && showStructs) {
+                const ehPos = projectToScreen(ehLabelWorldPos);
+                ehl.style.left = ehPos.x + 'px';
+                ehl.style.top = (ehPos.y - 12) + 'px';
+                ehl.style.display = 'block';
+            } else {
+                ehl.style.display = 'none';
+            }
+
+            // Position cosmic structure labels
+            const structLabelIds = ['grbRingLabel', 'bossLabel', 'sloanLabel'];
+            structureLabelPositions.forEach((s, i) => {
+                const el = document.getElementById(structLabelIds[i]);
+                if (showStructs) {
+                    const cr = getCrossRadius(s.tMid);
+                    const pos = projectToScreen(new THREE.Vector3(
+                        s.worldPos.x, cr + 0.6, s.worldPos.z
+                    ));
+                    el.style.left = pos.x + 'px';
+                    el.style.top = pos.y + 'px';
+                    el.style.display = 'block';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
