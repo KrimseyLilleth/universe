@@ -102,14 +102,15 @@
     <div id="herculesLabel" class="callout-label" style="color:#ff6b6b;">Hercules-Corona Borealis Wall</div>
     <div id="ehLabel" class="callout-label" style="color:#8866ff; font-size:10px;">Cosmic event horizon</div>
     <div id="grbRingLabel" class="callout-label" style="color:#ffdd44; font-size:9px;">Giant GRB Ring</div>
-    <div id="bossLabel" class="callout-label" style="color:#88ff44; font-size:9px;">BOSS Great Wall</div>
+    <div id="bossLabel" class="callout-label" style="color:#44ddff; font-size:9px;">BOSS Great Wall</div>
     <div id="sloanLabel" class="callout-label" style="color:#ff88ff; font-size:9px;">Sloan Great Wall</div>
+    <div id="obsUnivLabel" class="callout-label" style="color:#00ff88; font-size:10px; text-align:center; line-height:1.3;">Observable<br>universe</div>
 
     <div id="info">
         <h1>Universal Geometry</h1>
         <div class="equation">d = t · φ⁴</div>
         <p>A variable cross-section torus where every proportion is governed by the golden ratio φ.</p>
-        <p><span class="green">● Cross-section disc:</span> The observable universe at a given moment — a 2D slice through the structure at any point along the spine.</p>
+        <p><span class="green">● Green Sphere:</span> The observable universe at a given moment. The disc is the equatorial cross-section moving through spacetime.</p>
         <div class="label">
             Major radius: R<br>
             Max cross-section: R / φ²<br>
@@ -128,6 +129,9 @@
         <div class="val" id="lookbackText">13.787 billion light-years</div>
     </div>
 
+    <div id="timeDisplay" style="position:fixed; bottom:13%; left:50%; transform:translateX(-50%);
+        font-size:22px; color:rgba(255,255,255,0.85); letter-spacing:2px; font-family:monospace;
+        text-shadow:0 0 15px rgba(100,200,255,0.4); pointer-events:none; z-index:20; display:none;"></div>
     <div id="narration" style="position:fixed; bottom:8%; left:50%; transform:translateX(-50%);
         font-size:24px; color:rgba(255,255,255,0.85); font-style:italic; letter-spacing:2px;
         text-shadow:0 0 20px rgba(100,200,255,0.5); pointer-events:none; opacity:0;
@@ -141,7 +145,10 @@
         <div class="hint">Drag to progress time</div>
         <label><input type="checkbox" id="showWireframe" checked> Wireframe</label>
         <label><input type="checkbox" id="showStructures" checked> Structures & Markers</label>
-        <label><input type="checkbox" id="soundToggle"> Sound</label>
+        <label><input type="checkbox" id="showArrowLabel" checked> Observable Universe Label</label>
+        <label><input type="checkbox" id="showTimeMarkers"> Time</label>
+        <label><input type="checkbox" id="autoPlayToggle"> Auto-play time loop</label>
+        <label id="speedLabel" style="opacity:0.35;">Speed: <input type="range" id="autoPlaySpeed" min="1" max="50" value="10" disabled> <span id="speedVal">10</span></label>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -228,17 +235,16 @@
         }
 
         // --- Conformal time mapping: η = ∫dt/a(t) where a(t) = getCrossRadius(t) ---
-        // Precompute lookup table: conformal fraction (0→1) → torus parameter (0→PI)
-        const CONF_STEPS = 2000;
+        // Precompute lookup table: conformal fraction (0→1) → torus parameter (0→2PI) — full loop
+        const CONF_STEPS = 4000;
         const conformalEta = new Float64Array(CONF_STEPS + 1); // cumulative η at each step
         const conformalT = new Float64Array(CONF_STEPS + 1);   // torus param at each step
         (function buildConformalTable() {
-            const dt = Math.PI / CONF_STEPS;
+            const dt = (Math.PI * 2) / CONF_STEPS;
             conformalEta[0] = 0;
             conformalT[0] = 0;
             for (let i = 1; i <= CONF_STEPS; i++) {
                 const t = i * dt;
-                const a = getCrossRadius(t);
                 // Use midpoint rule; clamp a to avoid division by near-zero
                 const aMid = getCrossRadius(t - dt / 2);
                 conformalEta[i] = conformalEta[i - 1] + dt / Math.max(aMid, 0.001);
@@ -248,7 +254,7 @@
         const totalEta = conformalEta[CONF_STEPS];
 
         function conformalToTorus(frac) {
-            // frac in [0,1] → torus parameter via conformal time lookup
+            // frac in [0,1] → torus parameter via conformal time lookup (full loop 0→2PI)
             const targetEta = frac * totalEta;
             // Binary search in conformalEta table
             let lo = 0, hi = CONF_STEPS;
@@ -386,7 +392,7 @@
         function createPinchMarker() {
             const group = new THREE.Group();
 
-            // Bright core sphere — tiny sun
+            // Bright core sphere — primordial origin
             const coreGeo = new THREE.SphereGeometry(0.06, 32, 32);
             const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             const core = new THREE.Mesh(coreGeo, coreMat);
@@ -405,7 +411,7 @@
             // Outer glow
             const glow2Geo = new THREE.SphereGeometry(0.35, 32, 32);
             const glow2Mat = new THREE.MeshBasicMaterial({
-                color: 0xffeedd, transparent: true, opacity: 0.2, depthWrite: false
+                color: 0xffeedd, transparent: true, opacity: 0.25, depthWrite: false
             });
             const glow2 = new THREE.Mesh(glow2Geo, glow2Mat);
             glow2.position.set(R, 0, 0);
@@ -422,8 +428,8 @@
             const bloomGrad = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, 40);
             bloomGrad.addColorStop(0, 'rgba(255,255,255,1)');
             bloomGrad.addColorStop(0.3, 'rgba(255,255,240,0.6)');
-            bloomGrad.addColorStop(0.7, 'rgba(255,250,220,0.15)');
-            bloomGrad.addColorStop(1, 'rgba(255,245,200,0)');
+            bloomGrad.addColorStop(0.7, 'rgba(255,240,220,0.15)');
+            bloomGrad.addColorStop(1, 'rgba(255,230,200,0)');
             ctx.fillStyle = bloomGrad;
             ctx.fillRect(0, 0, 512, 512);
 
@@ -444,9 +450,9 @@
                 const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
                 grad.addColorStop(0, 'rgba(255,255,255,1)');
                 grad.addColorStop(0.08, 'rgba(255,255,240,0.8)');
-                grad.addColorStop(0.25, 'rgba(255,250,220,0.35)');
-                grad.addColorStop(0.6, 'rgba(255,245,200,0.08)');
-                grad.addColorStop(1, 'rgba(255,240,180,0)');
+                grad.addColorStop(0.25, 'rgba(255,240,220,0.35)');
+                grad.addColorStop(0.6, 'rgba(255,230,200,0.08)');
+                grad.addColorStop(1, 'rgba(255,220,180,0)');
 
                 ctx.fillStyle = grad;
                 ctx.beginPath();
@@ -471,9 +477,9 @@
                 const by2 = ccy + Math.sin(angle + spread) * baseR;
 
                 const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
-                grad.addColorStop(0, 'rgba(255,255,250,0.7)');
-                grad.addColorStop(0.3, 'rgba(255,248,225,0.2)');
-                grad.addColorStop(1, 'rgba(255,240,200,0)');
+                grad.addColorStop(0, 'rgba(255,255,240,0.7)');
+                grad.addColorStop(0.3, 'rgba(255,240,220,0.2)');
+                grad.addColorStop(1, 'rgba(255,230,200,0)');
 
                 ctx.fillStyle = grad;
                 ctx.beginPath();
@@ -498,8 +504,8 @@
                 const by2 = ccy + Math.sin(angle + spread) * baseR;
 
                 const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
-                grad.addColorStop(0, 'rgba(255,255,245,0.4)');
-                grad.addColorStop(1, 'rgba(255,240,200,0)');
+                grad.addColorStop(0, 'rgba(255,255,240,0.4)');
+                grad.addColorStop(1, 'rgba(255,230,200,0)');
 
                 ctx.fillStyle = grad;
                 ctx.beginPath();
@@ -517,7 +523,7 @@
             });
             const sprite = new THREE.Sprite(spriteMat);
             sprite.position.set(R, 0, 0);
-            sprite.scale.set(14, 14, 1);
+            sprite.scale.set(2, 2, 1);
             group.add(sprite); // [3]
 
 
@@ -528,6 +534,8 @@
         let discGroup = new THREE.Group();
         let ehLabelWorldPos = new THREE.Vector3();
         let ehLabelVisible = false;
+        let arrowLabelWorldPos = new THREE.Vector3();
+        let arrowVisible = false;
 
         function updateDisc(t) {
 
@@ -574,18 +582,45 @@
             }
             const fillGeo = new THREE.BufferGeometry();
             fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(fillVerts, 3));
+            const isContracting_ = t > Math.PI;
+            const ghostMult_ = isContracting_ ? 0.3 : 1.0;
             const fillMat = new THREE.MeshBasicMaterial({
-                color: 0x00ff88, transparent: true, opacity: 0.15 * discFadeIn,
+                color: isContracting_ ? 0x4488aa : 0x00ff88, transparent: true, opacity: 0.15 * discFadeIn * ghostMult_,
                 side: THREE.DoubleSide, depthWrite: false
             });
             discGroup.add(new THREE.Mesh(fillGeo, fillMat));
 
-            // Edge ring
+            // Sphere — the observable universe at this moment
+            // Ghost effect during contraction phase
+            const isContracting = t > Math.PI;
+            const ghostMult = isContracting ? 0.3 : 1.0;
+            const sphereGeo = new THREE.SphereGeometry(cr, 32, 32);
+            const sphereMat = new THREE.MeshBasicMaterial({
+                color: isContracting ? 0x4488aa : 0x00ff88,
+                transparent: true, opacity: 0.07 * discFadeIn * ghostMult,
+                side: THREE.DoubleSide, depthWrite: false
+            });
+            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+            sphere.position.set(cx, 0, cz);
+            discGroup.add(sphere);
+
+            // Sphere wireframe for depth
+            const wireGeo = new THREE.SphereGeometry(cr, 16, 16);
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: isContracting ? 0x4488aa : 0x00ff88,
+                transparent: true, opacity: 0.12 * discFadeIn * ghostMult,
+                wireframe: true, depthWrite: false
+            });
+            const wire = new THREE.Mesh(wireGeo, wireMat);
+            wire.position.set(cx, 0, cz);
+            discGroup.add(wire);
+
+            // Equatorial edge ring (disc outline)
             const edgeGeo = new THREE.BufferGeometry().setFromPoints(edgePts);
             const edgeMat = new THREE.LineBasicMaterial({
-                color: 0x00ff88,
+                color: isContracting_ ? 0x4488aa : 0x00ff88,
                 transparent: true,
-                opacity: 0.6 * discFadeIn
+                opacity: 0.6 * discFadeIn * ghostMult_
             });
             discGroup.add(new THREE.Line(edgeGeo, edgeMat));
 
@@ -594,6 +629,31 @@
             const dot = new THREE.Mesh(dotGeo, dotMat);
             dot.position.set(cx, 0, cz);
             discGroup.add(dot);
+
+            // Arrow pointing to sphere — fixed size, radially outward from spine
+            const arrowOn = document.getElementById('showArrowLabel').checked;
+            arrowVisible = discFadeIn > 0.01 && arrowOn;
+            if (arrowVisible) {
+                const radX = rx;
+                const radZ = rz;
+                const gap = 0.2;
+                const aLen = 0.8; // fixed length
+                const hSize = 0.15; // fixed head size
+                const arrowTip = new THREE.Vector3(cx + radX * (cr + gap), 0, cz + radZ * (cr + gap));
+                const arrowBase = new THREE.Vector3(cx + radX * (cr + gap + aLen), 0, cz + radZ * (cr + gap + aLen));
+                const headLeft = new THREE.Vector3(
+                    cx + radX * (cr + gap + hSize), hSize, cz + radZ * (cr + gap + hSize));
+                const headRight = new THREE.Vector3(
+                    cx + radX * (cr + gap + hSize), -hSize, cz + radZ * (cr + gap + hSize));
+                const arrowColor = isContracting_ ? 0x4488aa : 0x00ff00;
+                const shaftGeo = new THREE.BufferGeometry().setFromPoints([arrowBase, arrowTip]);
+                const shaftMat = new THREE.LineBasicMaterial({ color: arrowColor });
+                discGroup.add(new THREE.Line(shaftGeo, shaftMat));
+                const headGeo = new THREE.BufferGeometry().setFromPoints([headLeft, arrowTip, headRight]);
+                const headMat = new THREE.LineBasicMaterial({ color: arrowColor });
+                discGroup.add(new THREE.Line(headGeo, headMat));
+                arrowLabelWorldPos.copy(arrowBase);
+            }
 
             // Cosmic event horizon ring — only at max expansion (slider at max)
             const timeAtDisc = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
@@ -757,7 +817,7 @@
         // Each structure: { name, tStartGyr, tEndGyr, sizeBly, color }
         const cosmicStructures = [
             { name: 'Giant GRB Ring', tStartGyr: 6.6, tEndGyr: 6.9, sizeBly: 5.6, color: 0xffdd44, labelColor: '#ffdd44' },
-            { name: 'BOSS Great Wall', tStartGyr: 9.0, tEndGyr: 9.4, sizeBly: 1.0, color: 0x88ff44, labelColor: '#88ff44' },
+            { name: 'BOSS Great Wall', tStartGyr: 9.0, tEndGyr: 9.4, sizeBly: 1.0, color: 0x44ddff, labelColor: '#44ddff' },
             { name: 'Sloan Great Wall', tStartGyr: 12.3, tEndGyr: 12.7, sizeBly: 1.38, color: 0xff88ff, labelColor: '#ff88ff' },
         ];
 
@@ -1018,43 +1078,6 @@
             };
         }
 
-        // --- Audio: "Om" drone that rises in pitch with time rate ---
-        let audioCtx = null;
-        let omOscillators = [];
-        let masterGain = null;
-        function initAudio() {
-            if (audioCtx) return;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            masterGain = audioCtx.createGain();
-            masterGain.gain.value = 0;
-            masterGain.connect(audioCtx.destination);
-
-            // Om = rich layered drone: fundamental + harmonics + slight detuning
-            const baseFreq = 68; // ~C#2, classic om frequency
-            const harmonics = [
-                { freq: baseFreq, gain: 0.35, type: 'sine' },          // fundamental
-                { freq: baseFreq * 2, gain: 0.2, type: 'sine' },       // octave
-                { freq: baseFreq * 3, gain: 0.08, type: 'sine' },      // fifth above octave
-                { freq: baseFreq * 1.002, gain: 0.25, type: 'sine' },  // slight detune = beating
-                { freq: baseFreq * 0.998, gain: 0.25, type: 'sine' },  // slight detune other side
-                { freq: baseFreq * 4, gain: 0.04, type: 'triangle' },  // shimmer
-                { freq: baseFreq * 0.5, gain: 0.15, type: 'sine' },    // sub-bass
-            ];
-            harmonics.forEach(h => {
-                const osc = audioCtx.createOscillator();
-                const g = audioCtx.createGain();
-                osc.type = h.type;
-                osc.frequency.value = h.freq;
-                g.gain.value = h.gain;
-                osc.connect(g);
-                g.connect(masterGain);
-                osc.start();
-                omOscillators.push({ osc, gain: g, baseFreq: h.freq, baseGain: h.gain });
-            });
-        }
-        // Start audio on first user interaction
-        document.addEventListener('mousedown', () => initAudio(), { once: true });
-        document.addEventListener('touchstart', () => initAudio(), { once: true });
 
 
         // --- Animate ---
@@ -1098,20 +1121,43 @@
             spine.visible = true;
             // discGroup.visible is managed by updateDisc() to prevent fly-in at t=0
 
-            // Pinch sun pulse — gentle breathing glow
-            const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.002);
-            pinch.children[1].material.opacity = 0.3 + pulse * 0.15; // inner glow
-            pinch.children[2].material.opacity = 0.1 + pulse * 0.1;  // outer glow
-            pinch.children[3].material.opacity = 0.6 + pulse * 0.25; // corona sprite
+            // Pinch starburst visibility is updated after tParam is computed (below)
+
+            // Auto-play: advance slider continuously, speed controlled by slider
+            const autoPlay = document.getElementById('autoPlayToggle').checked;
+            const speedSlider = document.getElementById('autoPlaySpeed');
+            const speedLabel = document.getElementById('speedLabel');
+            speedSlider.disabled = !autoPlay;
+            speedLabel.style.opacity = autoPlay ? '1' : '0.35';
+            document.getElementById('speedVal').textContent = speedSlider.value;
+            if (autoPlay && !sliderDragging) {
+                let val = parseFloat(discSlider.value) + parseFloat(speedSlider.value);
+                if (val > 100000) val = 0;
+                discSlider.value = val;
+            }
 
             // Update disc from slider — linear in conformal time η = ∫dt/a(t)
             const sliderFrac = parseFloat(discSlider.value) / 100000.0;
             const tParam = conformalToTorus(sliderFrac);
             updateDisc(tParam);
 
+            // Pinch starburst — always visible (static marker at origin)
+            const distFromPinch = Math.min(tParam, Math.PI * 2 - tParam);
+            const pinchProximity = Math.max(0, 1 - distFromPinch / 0.3);
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.002);
+            pinch.children[0].material.opacity = 1.0;
+            pinch.children[1].material.opacity = 0.4 + pulse * 0.15;
+            pinch.children[2].material.opacity = 0.15 + pulse * 0.1;
+            pinch.children[3].material.opacity = 0.7 + pulse * 0.2;
+            pinch.visible = true;
+
             const crossR = getCrossRadius(tParam);
-            const timeGyr = ((crossR - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
-            const diameter = timeGyr * PHI4;
+            const inContraction = tParam > Math.PI;
+            // Expansion: cross-radius maps to 0→13.787 Gyr
+            // Contraction: mirror — time continues 13.787→27.574 Gyr
+            const expansionTimeGyr = ((crossR - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+            const timeGyr = inContraction ? MAX_TIME_GYR + (MAX_TIME_GYR - expansionTimeGyr) : expansionTimeGyr;
+            const diameter = expansionTimeGyr * PHI4; // diameter tracks scale factor, not total age
 
             // Time rate: proportional to cross-sectional AREA (radius²)
             // Area grows as square of scale factor — this is the physical rate
@@ -1119,37 +1165,46 @@
             const radiusRatio = crossR / aMin;
             const timeRate = Math.max(1, radiusRatio * radiusRatio); // area ratio
 
-            // Audio: om drone always on when sound enabled, pitch rises with time rate
-            const soundOn = document.getElementById('soundToggle').checked;
-            if (audioCtx && masterGain && soundOn && sliderFrac > 0.001) {
-                const pitchMult = Math.pow(timeRate, 0.12);
-                omOscillators.forEach(h => {
-                    h.osc.frequency.setTargetAtTime(h.baseFreq * pitchMult, audioCtx.currentTime, 0.08);
-                });
-                masterGain.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.15);
-            } else if (audioCtx && masterGain) {
-                masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
+
+
+            // Time display — snapped to 0.5 Byr increments
+            const timeDispEl = document.getElementById('timeDisplay');
+            const showTime = document.getElementById('showTimeMarkers').checked;
+            if (showTime) {
+                const snapped = Math.round(timeGyr * 10) / 10;
+                timeDispEl.textContent = 'time elapsed: ' + snapped.toFixed(1) + ' billion years';
+                timeDispEl.style.display = 'block';
+            } else {
+                timeDispEl.style.display = 'none';
             }
 
-            // Narration: "time speeds up" or "time slows" based on drag direction
+            // Narration: "time speeds up" / "time slows" — works for drag AND auto-play
             const narEl = document.getElementById('narration');
-            if (sliderDragging && sliderFrac > 0.01) {
+            const isMoving = sliderDragging || autoPlay;
+            if (isMoving && sliderFrac > 0.01) {
                 const delta = sliderFrac - prevSliderFrac;
-                if (delta > 0.00001) narEl.textContent = 'time speeds up';
-                else if (delta < -0.00001) narEl.textContent = 'time slows';
+                const phasePrefix = inContraction ? '(future) ' : '';
+                // During contraction, forward motion = time slowing (universe shrinking)
+                if (delta > 0.00001) {
+                    narEl.textContent = phasePrefix + (inContraction ? 'time slows' : 'time speeds up');
+                } else if (delta < -0.00001) {
+                    narEl.textContent = phasePrefix + (inContraction ? 'time speeds up' : 'time slows');
+                }
                 if (Math.abs(delta) > 0.00001) {
                     narEl.style.opacity = 1;
                 }
             }
-            if (!sliderDragging || sliderFrac <= 0.01) {
+            if (!isMoving || sliderFrac <= 0.01) {
                 narEl.style.opacity = 0;
             }
             prevSliderFrac = sliderFrac;
 
+            const phaseLabel = inContraction ? ' (contraction)' : ' (expansion)';
             document.getElementById('sliderLabel').textContent = timeGyr.toFixed(3);
-            document.getElementById('timeText').textContent = timeGyr.toFixed(3) + ' billion years';
+            document.getElementById('timeText').textContent = timeGyr.toFixed(3) + ' billion years' + phaseLabel;
             document.getElementById('diamText').textContent = diameter.toFixed(3) + ' billion light-years';
-            document.getElementById('lookbackText').textContent = (MAX_TIME_GYR - timeGyr).toFixed(3) + ' billion light-years';
+            const lookbackVal = inContraction ? '—' : (MAX_TIME_GYR - timeGyr).toFixed(3) + ' billion light-years';
+            document.getElementById('lookbackText').textContent = lookbackVal;
 
             drawGraph(timeGyr);
 
@@ -1164,13 +1219,16 @@
                 mel.style.display = 'none';
             }
 
-            // Position pinch label
+            // Position pinch label — always visible with structures, brighter near t=0
             const pinchPos = projectToScreen(new THREE.Vector3(R, 0.8, 0));
             const pl = document.getElementById('pinchLabel');
             if (showStructs) {
                 pl.style.left = pinchPos.x + 'px';
                 pl.style.top = pinchPos.y + 'px';
                 pl.style.display = 'block';
+                const pinchLabelOpacity = 0.4 + 0.6 * pinchProximity;
+                pl.style.opacity = pinchLabelOpacity;
+                pl.textContent = pinchProximity > 0.5 ? 't = 0 · origin' : 't = 0';
             } else {
                 pl.style.display = 'none';
             }
@@ -1213,6 +1271,26 @@
                     el.style.display = 'none';
                 }
             });
+
+            // Position observable universe arrow label
+            const oul = document.getElementById('obsUnivLabel');
+            if (arrowVisible) {
+                // Position label beyond the arrow base (outer end), away from sphere
+                const ouPos = projectToScreen(arrowLabelWorldPos);
+                // Also project the arrow tip (near sphere) to determine direction
+                // Push label further outward from sphere center
+                const sphereScreen = projectToScreen(new THREE.Vector3(
+                    Math.cos(tParam) * R, 0, Math.sin(tParam) * R));
+                const dx = ouPos.x - sphereScreen.x;
+                const dy = ouPos.y - sphereScreen.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const pushPx = 35; // extra pixels beyond arrow end
+                oul.style.left = (ouPos.x + dx / dist * pushPx - 30) + 'px';
+                oul.style.top = (ouPos.y + dy / dist * pushPx - 12) + 'px';
+                oul.style.display = 'block';
+            } else {
+                oul.style.display = 'none';
+            }
 
             renderer.render(scene, camera);
         }
