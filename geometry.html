@@ -74,15 +74,6 @@
         }
         #readout .val { color: #ffd166; font-size: 16px; font-weight: bold; }
         #readout .lbl { color: #999; font-size: 10px; margin-top: 8px; }
-        #graphCanvas {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.85);
-            border-radius: 8px;
-            border: 1px solid #333;
-            padding: 10px;
-        }
         .callout-label {
             position: absolute;
             pointer-events: none;
@@ -137,8 +128,6 @@
         text-shadow:0 0 20px rgba(100,200,255,0.5); pointer-events:none; opacity:0;
         transition:opacity 1.5s; z-index:20;"></div>
 
-    <canvas id="graphCanvas" width="354" height="310"></canvas>
-
     <div id="controls">
         <label>Auto-Rotate: <input type="range" id="rotationSpeed" min="0" max="50" value="1"></label>
         <label>Time: <input type="range" id="discSlider" min="0" max="100000" value="0" step="1"> <span id="sliderLabel">0.000</span></label>
@@ -169,13 +158,13 @@
         let isDragging = false;
         let isPanning = false;
         // Camera: theta=-PI/2, looking from below so time flows down from pinch
-        let spherical = { theta: -Math.PI / 2, phi: Math.PI / 1.6, radius: 38 };
+        let spherical = { theta: -Math.PI / 2, phi: Math.PI / 1.6, radius: 3.5 };
         let lookAt = new THREE.Vector3(0, 0, 0);
         let lastMouse = { x: 0, y: 0 };
 
         document.addEventListener('mousedown', (e) => {
             // Ignore if clicking on UI controls
-            if (e.target.closest('#controls, #readout, #graphCanvas')) return;
+            if (e.target.closest('#controls, #readout')) return;
             // Right-click or shift+click = pan, left-click = orbit
             if (e.button === 2 || e.shiftKey) {
                 isPanning = true;
@@ -208,12 +197,12 @@
             lastMouse = { x: e.clientX, y: e.clientY };
         });
         document.addEventListener('wheel', (e) => {
-            spherical.radius += e.deltaY * 0.03;
-            spherical.radius = Math.max(3, Math.min(80, spherical.radius));
+            spherical.radius += e.deltaY * 0.003;
+            spherical.radius = Math.max(0.3, Math.min(8, spherical.radius));
         });
 
         // --- Phi-governed geometry ---
-        const R = 12; // major radius
+        const R = 1; // major radius — one unit of awareness
         const MAX_CROSS = R / (PHI * PHI);
         const MIN_CROSS = MAX_CROSS / Math.pow(PHI, 8);
 
@@ -393,14 +382,14 @@
             const group = new THREE.Group();
 
             // Bright core sphere — primordial origin
-            const coreGeo = new THREE.SphereGeometry(0.06, 32, 32);
+            const coreGeo = new THREE.SphereGeometry(0.005, 32, 32);
             const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             const core = new THREE.Mesh(coreGeo, coreMat);
             core.position.set(R, 0, 0);
             group.add(core); // [0]
 
             // Inner glow
-            const glow1Geo = new THREE.SphereGeometry(0.15, 32, 32);
+            const glow1Geo = new THREE.SphereGeometry(0.012, 32, 32);
             const glow1Mat = new THREE.MeshBasicMaterial({
                 color: 0xffffee, transparent: true, opacity: 0.6, depthWrite: false
             });
@@ -409,7 +398,7 @@
             group.add(glow1); // [1]
 
             // Outer glow
-            const glow2Geo = new THREE.SphereGeometry(0.35, 32, 32);
+            const glow2Geo = new THREE.SphereGeometry(0.03, 32, 32);
             const glow2Mat = new THREE.MeshBasicMaterial({
                 color: 0xffeedd, transparent: true, opacity: 0.25, depthWrite: false
             });
@@ -523,7 +512,7 @@
             });
             const sprite = new THREE.Sprite(spriteMat);
             sprite.position.set(R, 0, 0);
-            sprite.scale.set(2, 2, 1);
+            sprite.scale.set(0.17, 0.17, 1);
             group.add(sprite); // [3]
 
 
@@ -624,7 +613,7 @@
             });
             discGroup.add(new THREE.Line(edgeGeo, edgeMat));
 
-            const dotGeo = new THREE.SphereGeometry(0.08, 12, 12);
+            const dotGeo = new THREE.SphereGeometry(0.007, 12, 12);
             const dotMat = new THREE.MeshBasicMaterial({ color: 0xff6666, transparent: true, opacity: 0.9 });
             const dot = new THREE.Mesh(dotGeo, dotMat);
             dot.position.set(cx, 0, cz);
@@ -636,9 +625,9 @@
             if (arrowVisible) {
                 const radX = rx;
                 const radZ = rz;
-                const gap = 0.2;
-                const aLen = 0.8; // fixed length
-                const hSize = 0.15; // fixed head size
+                const gap = 0.017;
+                const aLen = 0.067; // fixed length
+                const hSize = 0.012; // fixed head size
                 const arrowTip = new THREE.Vector3(cx + radX * (cr + gap), 0, cz + radZ * (cr + gap));
                 const arrowBase = new THREE.Vector3(cx + radX * (cr + gap + aLen), 0, cz + radZ * (cr + gap + aLen));
                 const headLeft = new THREE.Vector3(
@@ -686,7 +675,7 @@
                         discGroup.add(new THREE.Line(ehGeo, ehMat));
                     }
 
-                    ehLabelWorldPos.set(cx, ehModelR + 0.3, cz);
+                    ehLabelWorldPos.set(cx, ehModelR + 0.025, cz);
                     ehLabelVisible = true;
                 } else {
                     ehLabelVisible = false;
@@ -877,166 +866,6 @@
             }
         });
 
-        // --- 2D Graph ---
-        const graphCanvas = document.getElementById('graphCanvas');
-        const dpr = window.devicePixelRatio || 1;
-        graphCanvas.width = 354 * dpr;
-        graphCanvas.height = 310 * dpr;
-        graphCanvas.style.width = '354px';
-        graphCanvas.style.height = '310px';
-        const gctx = graphCanvas.getContext('2d');
-        gctx.scale(dpr, dpr);
-        const GW = 354, GH = 310;
-        const gPad = { l: 55, r: 20, t: 75, b: 35 };
-        const gPlotW = GW - gPad.l - gPad.r;
-        const gPlotH = GH - gPad.t - gPad.b;
-
-        function drawGraph(currentTimeGyr) {
-            gctx.clearRect(0, 0, GW * dpr, GH * dpr);
-
-            gctx.strokeStyle = '#555';
-            gctx.lineWidth = 1;
-            gctx.beginPath();
-            gctx.moveTo(gPad.l, gPad.t);
-            gctx.lineTo(gPad.l, gPad.t + gPlotH);
-            gctx.lineTo(gPad.l + gPlotW, gPad.t + gPlotH);
-            gctx.stroke();
-
-            gctx.fillStyle = '#888';
-            gctx.font = '14px Georgia';
-            gctx.textAlign = 'center';
-            gctx.fillText('Time (billion years)', gPad.l + gPlotW / 2, GH - 4);
-            gctx.save();
-            gctx.translate(10, gPad.t + gPlotH / 2);
-            gctx.rotate(-Math.PI / 2);
-            gctx.fillText('d (billion ly)', 0, 0);
-            gctx.restore();
-
-            gctx.fillStyle = '#666';
-            gctx.font = '14px Georgia';
-            gctx.textAlign = 'center';
-            const maxD = MAX_TIME_GYR * PHI4;
-            for (let tg = 0; tg <= MAX_TIME_GYR; tg += 5) {
-                const x = gPad.l + (tg / MAX_TIME_GYR) * gPlotW;
-                gctx.fillText(tg.toFixed(0), x, gPad.t + gPlotH + 12);
-            }
-            gctx.textAlign = 'right';
-            for (let dv = 0; dv <= maxD; dv += 25) {
-                const y = gPad.t + gPlotH - (dv / maxD) * gPlotH;
-                gctx.fillText(dv.toFixed(0), gPad.l - 4, y + 3);
-            }
-
-            // Diameter curve: d = t × φ⁴
-            gctx.strokeStyle = '#ffd166';
-            gctx.lineWidth = 1.5;
-            gctx.beginPath();
-            for (let i = 0; i <= 100; i++) {
-                const tg = (i / 100) * MAX_TIME_GYR;
-                const d = tg * PHI4;
-                const x = gPad.l + (tg / MAX_TIME_GYR) * gPlotW;
-                const y = gPad.t + gPlotH - (d / maxD) * gPlotH;
-                if (i === 0) gctx.moveTo(x, y);
-                else gctx.lineTo(x, y);
-            }
-            gctx.stroke();
-
-            // Comoving distance curve (pure φ formula)
-            // d_comoving = R_max × [A·(1 - x^(1/φ²)) - (1/φ⁴)·(1 - x)]
-            const R_MAX_BLY = MAX_TIME_GYR * PHI4 / 2; // 47.25
-            const COMOVING_A = 1 + 1 / (PHI4 + 1);     // 1.1273
-            const COMOVING_B = 1 / PHI4;                // 0.1459
-            const COMOVING_ALPHA = 1 / (PHI * PHI);     // 0.3820
-            gctx.strokeStyle = '#88ccff';
-            gctx.lineWidth = 1;
-            gctx.setLineDash([4, 2]);
-            gctx.beginPath();
-            for (let i = 0; i <= 100; i++) {
-                const tg = (i / 100) * MAX_TIME_GYR;
-                const xRatio = tg / MAX_TIME_GYR; // r/R_max = t/T
-                const dCom = R_MAX_BLY * (COMOVING_A * (1 - Math.pow(xRatio, COMOVING_ALPHA)) - COMOVING_B * (1 - xRatio));
-                const x = gPad.l + (tg / MAX_TIME_GYR) * gPlotW;
-                const y = gPad.t + gPlotH - (dCom / maxD) * gPlotH;
-                if (i === 0) gctx.moveTo(x, y);
-                else gctx.lineTo(x, y);
-            }
-            gctx.stroke();
-            gctx.setLineDash([]);
-
-            // Title and legend (above plot)
-            gctx.font = 'bold 16px Georgia';
-            gctx.textAlign = 'center';
-            gctx.fillStyle = '#ccc';
-            gctx.fillText('D = T × φ⁴', GW / 2, 20);
-            gctx.font = '14px Georgia';
-            gctx.textAlign = 'left';
-            gctx.fillStyle = '#ffd166';
-            gctx.fillText('— diameter', gPad.l + 3, 42);
-            gctx.fillStyle = '#88ccff';
-            gctx.fillText('--- comoving (φ formula)', gPad.l + 3, 60);
-
-            // Hercules-Corona Borealis Wall — shaded band
-            const hxStart = gPad.l + (HERCULES_T_START / MAX_TIME_GYR) * gPlotW;
-            const hxEnd = gPad.l + (HERCULES_T_END / MAX_TIME_GYR) * gPlotW;
-            gctx.fillStyle = 'rgba(255,107,107,0.15)';
-            gctx.fillRect(hxStart, gPad.t, hxEnd - hxStart, gPlotH);
-            gctx.strokeStyle = 'rgba(255,107,107,0.4)';
-            gctx.lineWidth = 1;
-            gctx.strokeRect(hxStart, gPad.t, hxEnd - hxStart, gPlotH);
-            gctx.fillStyle = '#ff6b6b';
-            gctx.font = '11px Georgia';
-            gctx.textAlign = 'center';
-            gctx.save();
-            gctx.translate((hxStart + hxEnd) / 2, gPad.t + gPlotH / 2);
-            gctx.rotate(-Math.PI / 2);
-            gctx.fillText('H-C Wall', 0, 0);
-            gctx.restore();
-
-            // Other cosmic structures on graph
-            const structLabels = ['GRB Ring', 'BOSS Wall', 'Sloan Wall'];
-            cosmicStructures.forEach((s, i) => {
-                const sxStart = gPad.l + (s.tStartGyr / MAX_TIME_GYR) * gPlotW;
-                const sxEnd = gPad.l + (s.tEndGyr / MAX_TIME_GYR) * gPlotW;
-                const hexColor = '#' + s.color.toString(16).padStart(6, '0');
-                gctx.fillStyle = hexColor + '20';
-                gctx.fillRect(sxStart, gPad.t, sxEnd - sxStart, gPlotH);
-                gctx.strokeStyle = hexColor + '66';
-                gctx.lineWidth = 0.5;
-                gctx.strokeRect(sxStart, gPad.t, sxEnd - sxStart, gPlotH);
-                gctx.fillStyle = hexColor;
-                gctx.font = '11px Georgia';
-                gctx.textAlign = 'center';
-                gctx.save();
-                const sx = (sxStart + sxEnd) / 2;
-                gctx.translate(sx, gPad.t + gPlotH / 2);
-                gctx.rotate(-Math.PI / 2);
-                gctx.fillText(structLabels[i], 0, 0);
-                gctx.restore();
-            });
-
-            // Today marker
-            const todayX = gPad.l + gPlotW;
-            const todayY = gPad.t + gPlotH - (93 / maxD) * gPlotH;
-            gctx.fillStyle = '#4ecdc4';
-            gctx.beginPath();
-            gctx.arc(todayX, todayY, 3, 0, Math.PI * 2);
-            gctx.fill();
-            gctx.font = '14px Georgia';
-            gctx.textAlign = 'right';
-            gctx.fillText('Today', todayX - 5, todayY + 3);
-
-            if (currentTimeGyr >= 0) {
-                const x = gPad.l + (Math.min(currentTimeGyr, MAX_TIME_GYR) / MAX_TIME_GYR) * gPlotW;
-                gctx.strokeStyle = 'rgba(0,255,136,0.6)';
-                gctx.lineWidth = 1;
-                gctx.setLineDash([3, 3]);
-                gctx.beginPath();
-                gctx.moveTo(x, gPad.t);
-                gctx.lineTo(x, gPad.t + gPlotH);
-                gctx.stroke();
-                gctx.setLineDash([]);
-            }
-        }
-
         // --- Lighting ---
         const ambient = new THREE.AmbientLight(0x334455, 0.6);
         scene.add(ambient);
@@ -1066,9 +895,6 @@
         const herculesRegion = createHerculesRegion();
         structuresGroup.add(herculesRegion);
 
-        // Initial graph
-        drawGraph(0);
-
         // --- Helper to project 3D → screen ---
         function projectToScreen(worldPos) {
             const v = worldPos.clone().project(camera);
@@ -1094,7 +920,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 's' || e.key === 'S') {
                 screenshotMode = !screenshotMode;
-                const els = ['info', 'readout', 'controls', 'graphCanvas', 'narration'];
+                const els = ['info', 'readout', 'controls', 'narration'];
                 els.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = screenshotMode ? 'none' : '';
@@ -1206,12 +1032,10 @@
             const lookbackVal = inContraction ? '—' : (MAX_TIME_GYR - timeGyr).toFixed(3) + ' billion light-years';
             document.getElementById('lookbackText').textContent = lookbackVal;
 
-            drawGraph(timeGyr);
-
             // Position max expansion label
             const mel = document.getElementById('maxExpLabel');
             if (showStructs) {
-                const maxExpPos = projectToScreen(new THREE.Vector3(-R, MAX_CROSS + 0.8, 0));
+                const maxExpPos = projectToScreen(new THREE.Vector3(-R, MAX_CROSS + 0.07, 0));
                 mel.style.left = maxExpPos.x + 'px';
                 mel.style.top = maxExpPos.y + 'px';
                 mel.style.display = 'block';
@@ -1220,7 +1044,7 @@
             }
 
             // Position pinch label — always visible with structures, brighter near t=0
-            const pinchPos = projectToScreen(new THREE.Vector3(R, 0.8, 0));
+            const pinchPos = projectToScreen(new THREE.Vector3(R, 0.07, 0));
             const pl = document.getElementById('pinchLabel');
             if (showStructs) {
                 pl.style.left = pinchPos.x + 'px';
@@ -1236,7 +1060,7 @@
             // Position Hercules Wall label
             const hwl = document.getElementById('herculesLabel');
             if (showStructs) {
-                const hwPos = projectToScreen(new THREE.Vector3(herculesLabelPos.x, getCrossRadius(timeToTorusParam(3.8)) + 0.8, herculesLabelPos.z));
+                const hwPos = projectToScreen(new THREE.Vector3(herculesLabelPos.x, getCrossRadius(timeToTorusParam(3.8)) + 0.07, herculesLabelPos.z));
                 hwl.style.left = (hwPos.x - 120) + 'px';
                 hwl.style.top = hwPos.y + 'px';
                 hwl.style.display = 'block';
@@ -1262,7 +1086,7 @@
                 if (showStructs) {
                     const cr = getCrossRadius(s.tMid);
                     const pos = projectToScreen(new THREE.Vector3(
-                        s.worldPos.x, cr + 0.6, s.worldPos.z
+                        s.worldPos.x, cr + 0.05, s.worldPos.z
                     ));
                     el.style.left = pos.x + 'px';
                     el.style.top = pos.y + 'px';
