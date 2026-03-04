@@ -1,0 +1,21 @@
+# Universal Geometry                                                                                                                           
+  Interactive 3D model of the torus geometry described in:                                                                                    
+  
+  **D = T × φ⁴: The Geometry of Spacetime**
+
+  📄 Paper: https://doi.org/10.5281/zenodo.18438693
+
+  🌐 Live model: https://unifiedphysics.github.io/universe/geometryoftheuniverse.html
+
+  ## Controls
+
+  - Drag to rotate
+  - Scroll to zoom
+  - Right-click drag to pan
+  - Time slider to explore expansion history
+  - Press S to toggle UI
+  - Sound checkbox for conformal time audio
+
+  ## License
+
+  MIT
