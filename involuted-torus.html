@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Involuted Torus — Möbius Surface</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: Georgia, serif;
+            color: #fff;
+        }
+        #container { width: 100vw; height: 100vh; }
+
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.85);
+            padding: 24px;
+            border-radius: 10px;
+            max-width: 320px;
+            border: 1px solid #333;
+            pointer-events: none;
+        }
+        #info h1 {
+            font-size: 20px;
+            margin-bottom: 6px;
+            color: #fff;
+            font-style: italic;
+        }
+        #info .equation {
+            font-size: 24px;
+            color: #ffd166;
+            margin: 10px 0;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        #info p {
+            font-size: 12px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+        #stage-label {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            color: #ffd166;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 0 20px rgba(255,209,102,0.5);
+            transition: opacity 0.8s;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+        .gold { color: #ffd166; }
+        .cyan { color: #4ecdc4; }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            padding: 16px 28px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        #controls label {
+            font-size: 12px;
+            color: #aaa;
+        }
+        #controls input[type="range"] {
+            width: 160px;
+            accent-color: #ffd166;
+            cursor: pointer;
+        }
+        #controls button {
+            background: rgba(255,209,102,0.15);
+            border: 1px solid #ffd166;
+            color: #ffd166;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: Georgia, serif;
+            font-size: 13px;
+            transition: background 0.3s;
+        }
+        #controls button:hover { background: rgba(255,209,102,0.3); }
+        #controls button.active { background: rgba(255,209,102,0.4); }
+        #phi-value {
+            color: #ffd166;
+            font-size: 14px;
+            min-width: 50px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id="container"></div>
+
+<div id="info">
+    <h1>The Involuted Torus</h1>
+    <div class="equation">R/r = &phi; = <span id="phi-display">1.618</span></div>
+    <p>A torus that folds back through itself, creating a surface with <span class="cyan">no distinction between inside and outside</span>.</p>
+    <p>When the ratio of major to minor radius equals the <span class="gold">golden ratio &phi;</span>, the geometry becomes self-similar at every scale.</p>
+    <p id="info-detail">The surface flow requires <span class="gold">two full revolutions</span> to return to its origin — the signature of a non-orientable topology.</p>
+</div>
+
+<div id="stage-label">Stage 1: Normal Torus — rotating gently</div>
+
+<div id="controls">
+    <div>
+        <label>Stage:</label>
+        <button id="btn-stage1" class="active" onclick="setStage(0)">1. Torus</button>
+        <button id="btn-stage2" onclick="setStage(1)">2. Fold</button>
+        <button id="btn-stage3" onclick="setStage(2)">3. Flow</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <label>&phi; ratio:</label>
+        <input type="range" id="phi-slider" min="1.1" max="3.0" step="0.001" value="1.618">
+        <span id="phi-value">1.618</span>
+    </div>
+    <button id="btn-auto" onclick="toggleAuto()">Auto Play</button>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ─── Scene setup ─────────────────────────────────────────────
+const container = document.getElementById('container');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050510);
+scene.fog = new THREE.FogExp2(0x050510, 0.015);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 3, 8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.autoRotate = false;
+
+// ─── Lights ──────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x222244, 0.5));
+
+const keyLight = new THREE.DirectionalLight(0xffd166, 0.8);
+keyLight.position.set(5, 5, 5);
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x4ecdc4, 0.4);
+fillLight.position.set(-5, -2, -5);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(0xff6b6b, 0.6, 20);
+rimLight.position.set(0, 5, -5);
+scene.add(rimLight);
+
+// ─── State ───────────────────────────────────────────────────
+let phi = 1.618;
+let currentStage = 0;       // 0=torus, 1=fold, 2=flow
+let foldProgress = 0;       // 0..1
+let autoPlay = false;
+let autoTimer = 0;
+let clock = new THREE.Clock();
+
+const TORUS_SEGMENTS_U = 128;
+const TORUS_SEGMENTS_V = 64;
+const PARTICLE_COUNT = 4000;
+
+// ─── Torus geometry (custom buffer for morphing) ─────────────
+const torusGeo = new THREE.BufferGeometry();
+const vertCount = (TORUS_SEGMENTS_U + 1) * (TORUS_SEGMENTS_V + 1);
+const positions = new Float32Array(vertCount * 3);
+const normals = new Float32Array(vertCount * 3);
+const uvs = new Float32Array(vertCount * 2);
+const indices = [];
+
+// Build index buffer
+for (let i = 0; i < TORUS_SEGMENTS_U; i++) {
+    for (let j = 0; j < TORUS_SEGMENTS_V; j++) {
+        const a = i * (TORUS_SEGMENTS_V + 1) + j;
+        const b = a + TORUS_SEGMENTS_V + 1;
+        const c = b + 1;
+        const d = a + 1;
+        indices.push(a, b, d, b, c, d);
+    }
+}
+
+torusGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+torusGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+torusGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+torusGeo.setIndex(indices);
+
+// ─── Material (custom shader for glow effect) ───────────────
+const torusMat = new THREE.ShaderMaterial({
+    uniforms: {
+        uTime: { value: 0 },
+        uFold: { value: 0 },
+        uColor1: { value: new THREE.Color(0x4ecdc4) },
+        uColor2: { value: new THREE.Color(0xffd166) },
+        uColor3: { value: new THREE.Color(0xff6b6b) },
+        uOpacity: { value: 0.85 },
+        uShowFlow: { value: 0 }
+    },
+    vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec2 vUv;
+        void main() {
+            vNormal = normalize(normalMatrix * normal);
+            vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform float uTime;
+        uniform float uFold;
+        uniform float uShowFlow;
+        uniform vec3 uColor1;
+        uniform vec3 uColor2;
+        uniform vec3 uColor3;
+        uniform float uOpacity;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec2 vUv;
+
+        void main() {
+            // Fresnel rim glow
+            vec3 viewDir = normalize(-vPosition);
+            float fresnel = 1.0 - abs(dot(viewDir, vNormal));
+            fresnel = pow(fresnel, 2.5);
+
+            // Base color from UV
+            float t = vUv.x + vUv.y * 0.3;
+            vec3 baseColor = mix(uColor1, uColor2, sin(t * 3.14159) * 0.5 + 0.5);
+
+            // Flow lines when in stage 3
+            float flow = 0.0;
+            if (uShowFlow > 0.01) {
+                float line1 = sin((vUv.x * 12.0 + vUv.y * 6.0 - uTime * 0.5) * 6.2832) * 0.5 + 0.5;
+                line1 = smoothstep(0.7, 1.0, line1);
+                float line2 = sin((vUv.x * 6.0 - vUv.y * 12.0 - uTime * 0.3) * 6.2832) * 0.5 + 0.5;
+                line2 = smoothstep(0.7, 1.0, line2);
+                flow = (line1 + line2) * uShowFlow;
+            }
+
+            // Fold transition color shift
+            baseColor = mix(baseColor, uColor3, uFold * fresnel);
+
+            vec3 finalColor = baseColor * 0.6 + baseColor * fresnel * 0.8;
+            finalColor += vec3(1.0, 0.95, 0.8) * flow * 0.4;
+
+            // Subtle ambient
+            finalColor += vec3(0.02, 0.02, 0.05);
+
+            gl_FragColor = vec4(finalColor, uOpacity + fresnel * 0.15);
+        }
+    `,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false
+});
+
+const torusMesh = new THREE.Mesh(torusGeo, torusMat);
+scene.add(torusMesh);
+
+// Wireframe overlay
+const wireMat = new THREE.MeshBasicMaterial({
+    color: 0x4ecdc4,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.04
+});
+const wireMesh = new THREE.Mesh(torusGeo, wireMat);
+scene.add(wireMesh);
+
+// ─── Particles for flow visualization ────────────────────────
+const particleGeo = new THREE.BufferGeometry();
+const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+const particleColors = new Float32Array(PARTICLE_COUNT * 3);
+const particlePhases = new Float32Array(PARTICLE_COUNT); // u parameter
+const particleVPhases = new Float32Array(PARTICLE_COUNT); // v parameter
+
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particlePhases[i] = Math.random();
+    particleVPhases[i] = Math.random();
+    particleColors[i * 3] = 0.3 + Math.random() * 0.7;
+    particleColors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
+    particleColors[i * 3 + 2] = 0.6 + Math.random() * 0.4;
+}
+
+particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+const particleMat = new THREE.PointsMaterial({
+    size: 0.04,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+});
+
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+// ─── Geometry computation ────────────────────────────────────
+
+// Normal torus point
+function torusPoint(u, v, R, r) {
+    const theta = u * Math.PI * 2;
+    const phiAngle = v * Math.PI * 2;
+    const x = (R + r * Math.cos(phiAngle)) * Math.cos(theta);
+    const y = r * Math.sin(phiAngle);
+    const z = (R + r * Math.cos(phiAngle)) * Math.sin(theta);
+    return [x, y, z];
+}
+
+// Involuted torus — the tube passes through the hole and reconnects.
+// As fold goes 0→1, the outer surface continuously deforms so the tube
+// turns inside-out: the outside becomes the inside and vice-versa.
+// A half-twist (theta*0.5) in the tube angle gives the two-loop property:
+// a point must travel 2 full revolutions around the tube to return.
+function involutedTorusPoint(u, v, R, r, fold) {
+    const theta = u * Math.PI * 2;
+
+    // Half-twist in the cross-section angle — Möbius-like
+    const twist = fold * 0.5;
+    const phiAngle = v * Math.PI * 2 + theta * twist;
+
+    // During the fold, the tube radius smoothly varies around the loop:
+    //   - at theta=0  (outer equator): tube shrinks, gets pulled inward
+    //   - at theta=PI (inner equator): tube expands and pushes through
+    // This creates the visual of one side diving through the hole.
+    const cosT = Math.cos(theta);
+    const sinT = Math.sin(theta);
+
+    // Smooth envelope: ranges from (1-fold*0.55) at theta=0 to (1+fold*0.35) at theta=PI
+    const envelope = 1.0 - fold * 0.45 * cosT;
+    const rEff = r * envelope;
+
+    // The centerline also deforms: inner side bulges inward toward center
+    const centerDeform = fold * r * 0.5 * Math.max(0, -cosT);
+    const Reff = R - centerDeform;
+
+    // Center of tube cross-section
+    const cx = Reff * Math.cos(theta);
+    const cz = Reff * Math.sin(theta);
+
+    // Radial direction (outward from torus center axis)
+    const rx = Math.cos(theta);
+    const rz = Math.sin(theta);
+
+    // Point on the tube surface
+    const x = cx + rEff * Math.cos(phiAngle) * rx;
+    const y =      rEff * Math.sin(phiAngle);
+    const z = cz + rEff * Math.cos(phiAngle) * rz;
+
+    return [x, y, z];
+}
+
+function updateTorusGeometry(fold) {
+    const r = 1.0;        // minor radius
+    const R = r * phi;    // major radius — so R/r = phi
+
+    const pos = torusGeo.attributes.position;
+    const norm = torusGeo.attributes.normal;
+    const uv = torusGeo.attributes.uv;
+
+    for (let i = 0; i <= TORUS_SEGMENTS_U; i++) {
+        for (let j = 0; j <= TORUS_SEGMENTS_V; j++) {
+            const idx = i * (TORUS_SEGMENTS_V + 1) + j;
+            const u = i / TORUS_SEGMENTS_U;
+            const v = j / TORUS_SEGMENTS_V;
+
+            const p = involutedTorusPoint(u, v, R, r, fold);
+
+            pos.array[idx * 3] = p[0];
+            pos.array[idx * 3 + 1] = p[1];
+            pos.array[idx * 3 + 2] = p[2];
+
+            uv.array[idx * 2] = u;
+            uv.array[idx * 2 + 1] = v;
+        }
+    }
+
+    pos.needsUpdate = true;
+    uv.needsUpdate = true;
+    torusGeo.computeVertexNormals();
+}
+
+function updateParticles(time, fold) {
+    const r = 1.0;
+    const R = r * phi;
+    const pos = particleGeo.attributes.position;
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        // Particles flow along the surface — u advances with time
+        // Two-loop property: particles travel 2x around before returning
+        const speed = 0.08;
+        const baseU = (particlePhases[i] + time * speed) % 2.0; // 0..2 for double loop
+        const u = baseU * 0.5; // map to 0..1 for geometry
+        const v = (particleVPhases[i] + time * 0.02 * (0.5 + particlePhases[i])) % 1.0;
+
+        const p = involutedTorusPoint(u, v, R, r, fold);
+
+        // Small offset outward from surface
+        const epsilon = 0.001;
+        const pu = involutedTorusPoint(u + epsilon, v, R, r, fold);
+        const pv = involutedTorusPoint(u, v + epsilon, R, r, fold);
+
+        // Approximate normal
+        const du = [pu[0] - p[0], pu[1] - p[1], pu[2] - p[2]];
+        const dv = [pv[0] - p[0], pv[1] - p[1], pv[2] - p[2]];
+        const nx = du[1] * dv[2] - du[2] * dv[1];
+        const ny = du[2] * dv[0] - du[0] * dv[2];
+        const nz = du[0] * dv[1] - du[1] * dv[0];
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz) + 0.0001;
+
+        pos.array[i * 3] = p[0] + (nx / len) * 0.06;
+        pos.array[i * 3 + 1] = p[1] + (ny / len) * 0.06;
+        pos.array[i * 3 + 2] = p[2] + (nz / len) * 0.06;
+    }
+
+    pos.needsUpdate = true;
+}
+
+// ─── Stage management ────────────────────────────────────────
+const stageLabel = document.getElementById('stage-label');
+const infoDetail = document.getElementById('info-detail');
+const stageDescriptions = [
+    'Stage 1: Normal Torus — a surface with a clear inside and outside',
+    'Stage 2: Involution — the surface folds back through itself',
+    'Stage 3: Involuted State — particles flow continuously, requiring two full loops to return'
+];
+
+function setStage(s) {
+    currentStage = s;
+    document.querySelectorAll('#controls button').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('btn-stage' + (s + 1));
+    if (btn) btn.classList.add('active');
+    stageLabel.textContent = stageDescriptions[s];
+}
+
+// ─── UI ──────────────────────────────────────────────────────
+const phiSlider = document.getElementById('phi-slider');
+const phiValue = document.getElementById('phi-value');
+const phiDisplay = document.getElementById('phi-display');
+
+phiSlider.addEventListener('input', () => {
+    phi = parseFloat(phiSlider.value);
+    phiValue.textContent = phi.toFixed(3);
+    phiDisplay.textContent = phi.toFixed(3);
+});
+
+function toggleAuto() {
+    autoPlay = !autoPlay;
+    autoTimer = 0;
+    document.getElementById('btn-auto').classList.toggle('active', autoPlay);
+}
+
+window.setStage = setStage;
+window.toggleAuto = toggleAuto;
+
+// ─── Background stars ────────────────────────────────────────
+const starGeo = new THREE.BufferGeometry();
+const starPositions = new Float32Array(2000 * 3);
+for (let i = 0; i < 2000; i++) {
+    starPositions[i * 3] = (Math.random() - 0.5) * 100;
+    starPositions[i * 3 + 1] = (Math.random() - 0.5) * 100;
+    starPositions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+const starMat = new THREE.PointsMaterial({ color: 0x666688, size: 0.1, transparent: true, opacity: 0.6 });
+scene.add(new THREE.Points(starGeo, starMat));
+
+// ─── Animation loop ──────────────────────────────────────────
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    const time = clock.getElapsedTime();
+
+    // Auto-play staging
+    if (autoPlay) {
+        autoTimer += dt;
+        if (autoTimer < 5) {
+            setStage(0);
+        } else if (autoTimer < 15) {
+            setStage(1);
+        } else if (autoTimer < 25) {
+            setStage(2);
+        } else {
+            autoTimer = 0;
+        }
+    }
+
+    // Smoothly transition fold progress
+    let targetFold = 0;
+    if (currentStage === 0) targetFold = 0;
+    else if (currentStage === 1) {
+        // Animate fold 0 -> 1 slowly
+        const cycleTime = 8; // seconds per fold cycle
+        targetFold = (Math.sin(time * Math.PI / cycleTime) * 0.5 + 0.5);
+    } else {
+        targetFold = 1;
+    }
+
+    foldProgress += (targetFold - foldProgress) * Math.min(dt * 2, 1);
+
+    // Particle visibility
+    const targetParticleOpacity = currentStage === 2 ? 0.7 : 0;
+    particleMat.opacity += (targetParticleOpacity - particleMat.opacity) * Math.min(dt * 3, 1);
+
+    // Show flow on surface
+    torusMat.uniforms.uShowFlow.value += ((currentStage === 2 ? 1 : 0) - torusMat.uniforms.uShowFlow.value) * Math.min(dt * 2, 1);
+
+    // Update geometry
+    updateTorusGeometry(foldProgress);
+
+    // Update particles
+    if (particleMat.opacity > 0.01) {
+        updateParticles(time, foldProgress);
+    }
+
+    // Shader uniforms
+    torusMat.uniforms.uTime.value = time;
+    torusMat.uniforms.uFold.value = foldProgress;
+
+    // Gentle auto-rotation for the torus
+    torusMesh.rotation.y = time * 0.15;
+    wireMesh.rotation.y = time * 0.15;
+    particles.rotation.y = time * 0.15;
+
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+// ─── Resize ──────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ─── Start ───────────────────────────────────────────────────
+updateTorusGeometry(0);
+animate();
+
+</script>
+</body>
+</html>
