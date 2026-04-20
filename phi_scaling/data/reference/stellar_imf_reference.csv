@@ -1,0 +1,18 @@
+imf_model,scale_type,mass_solar,citation
+Salpeter1955,cutoff_low,0.4,Salpeter 1955 ApJ 121 161
+Salpeter1955,cutoff_high,10.0,Salpeter 1955 ApJ 121 161
+MillerScalo1979,peak,0.1,Miller and Scalo 1979 ApJSS 41 513
+MillerScalo1979,cutoff_low,0.1,Miller and Scalo 1979 ApJSS 41 513
+MillerScalo1979,cutoff_high,62.0,Miller and Scalo 1979 ApJSS 41 513
+Kroupa2001,break,0.08,Kroupa 2001 MNRAS 322 231
+Kroupa2001,break,0.5,Kroupa 2001 MNRAS 322 231
+Kroupa2001,cutoff_low,0.01,Kroupa 2001 MNRAS 322 231
+Kroupa2001,cutoff_high,150.0,Kroupa 2001 MNRAS 322 231
+Chabrier2003_individual,peak,0.22,Chabrier 2003 PASP 115 763
+Chabrier2003_individual,break,1.0,Chabrier 2003 PASP 115 763
+Chabrier2003_system,peak,0.25,Chabrier 2003 PASP 115 763
+Chabrier2005_system,peak,0.20,Chabrier 2005 ASSL 327 41
+WeidnerKroupa2006,cutoff_high,150.0,Weidner and Kroupa 2006 MNRAS 365 1333
+Bastian2010_review,peak,0.20,Bastian Covey Meyer 2010 ARA&A 48 339
+Bastian2010_review,peak_range_low,0.15,Bastian Covey Meyer 2010 ARA&A 48 339
+Bastian2010_review,peak_range_high,0.30,Bastian Covey Meyer 2010 ARA&A 48 339
