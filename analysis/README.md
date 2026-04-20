@@ -1,15 +1,14 @@
 # Spectral φ-Harmonic Test
 
-## Hypothesis
+## Question
 
-If the golden ratio φ ≈ 1.618 governs atomic shell geometry, then the
-ratios between spectral lines of a given element should show φ-related
-harmonic relationships — ratios clustering near φᵏ — distinct from
-(or in addition to) the hydrogen-series 1/n² pattern.
+Do pairwise ratios between spectral lines of real elements cluster
+near φᵏ, as would be expected if φ ≈ 1.618 were a preferred harmonic
+base in atomic structure?
 
 ## Data
 
-Published NIST Atomic Spectra Database wavelengths for:
+Published NIST Atomic Spectra Database wavelengths for five elements:
 
 | Element | Lines | Pairwise ratios |
 |---|---|---|
@@ -19,90 +18,91 @@ Published NIST Atomic Spectra Database wavelengths for:
 | Fe I  | 12 | 66 |
 | Ne I  | 14 | 91 |
 
-All wavelengths hard-coded in `spectral_phi_analysis.py` with sources noted.
+Hard-coded in `spectral_phi_analysis.py` with sources noted. No model
+is imposed — only the published wavelengths are used.
 
-## Three tests
+## Tests (all three are just ways of looking at the same ratios)
 
-### Test 1 — Fixed-base clustering (`spectral_phi_analysis.py`)
+### 1. Direct φᵏ hit counts (`phi_ratio_hits.py`)
 
-For each pairwise frequency ratio r ≥ 1, compute the fractional part of
-log_b(r) for several candidate bases. If b is a privileged harmonic
-base, the fractional parts should cluster near 0 (ratios near bᵏ).
-Kuiper and Kolmogorov–Smirnov tests against Uniform[0,1).
+For each of 325 pairwise frequency ratios, check whether it falls
+within tolerance of φᵏ for k ∈ {−4…+4}\{0}. Compare to an empirical
+null that preserves the ratio *distribution* but randomly shifts
+each log-ratio by a uniform offset in [−log φ/2, +log φ/2] (500
+trials). This removes any quantum structure without changing the
+overall density of ratios.
 
-**Result:** Every element rejects uniformity for nearly every base tested
-(φ, φ², 2, e, √2, 3, 3/2). This is *expected*: any discrete quantum
-spectrum gives structured, non-random ratios. φ is not singled out.
+| Tolerance | Observed hits | Empirical null (mean ± σ) | z-score |
+|---|---|---|---|
+| 0.5 % |  4 |  2.6 ± 1.6 | +0.88 |
+| 1.0 % |  7 |  5.4 ± 2.3 | +0.69 |
+| 2.0 % | 13 | 10.8 ± 3.1 | +0.72 |
 
-### Test 2 — Base scan (`spectral_phi_scan.py`)
+**No significant excess.** Observed counts are within ~1σ of the
+null expectation.
 
-Scan candidate bases b from 1.05 to 3.00 in 0.005 steps. For each b,
-compute the Rayleigh Z-statistic for concentration of fractional
-log_b(r) near integers. If φ is privileged, it should be a local peak
-of Z. Result across all elements combined:
+### 2. Per-element breakdown
 
-| Base | Combined Rayleigh sum-Z | Rank (of 391 grid points) |
+Every hit at 1 % tolerance:
+
+```
+H:  Ly-ε / H-ε       ratio = 4.2334   phi^+3 (err +0.063%)
+H:  Ly-β / H-γ       ratio = 4.2316   phi^+3 (err +0.105%)
+H:  Ly-γ / H-δ       ratio = 4.2176   phi^+3 (err +0.436%)
+H:  H-β  / Pa-β      ratio = 2.6367   phi^+2 (err +0.714%)
+H:  Ly-δ / H-α       ratio = 6.9101   phi^+4 (err +0.817%)
+He: 667.8 / 1083     ratio = 1.6217   phi^+1 (err +0.229%)
+He: 447.1 / 728.1    ratio = 1.6284   phi^+1 (err +0.641%)
+Na: (none)
+Fe: (none)
+Ne: (none)
+```
+
+Three of the five elements produce zero hits. The Hydrogen hits cluster
+near φ³ ≈ 4.236, but this is a coincidence of the Rydberg formula:
+for large n,m the Lyman-to-Balmer frequency ratio
+
+(1 − 1/n²) / (¼ − 1/m²)  →  4  as n,m → ∞.
+
+φ³ = 4.236 happens to sit 5.8 % above 4, so many (n,m) pairs land near
+it without φ playing any role. For example 800/189, 6860/1620, 2160/512
+are the exact rationals underlying the top three H hits.
+
+### 3. Continuous base scan (`spectral_phi_scan.py`)
+
+If φ were privileged, the clustering statistic (Rayleigh Z of fractional
+log_b(ratio)) should peak at b = φ when we scan b from 1.05 to 3.00.
+Combined across all five elements:
+
+| Base | Rayleigh sum-Z | Rank (of 391) |
 |---|---|---|
-| φ  (1.618)  | 68.9  | **258 / 391** |
-| φ² (2.618)  | 121.2 |  77 / 391 |
-| 2           |  92.1 | 201 / 391 |
-| e           | 126.2 |  57 / 391 |
-| 3/2         |  48.9 | 324 / 391 |
-| √2          |  48.8 | 325 / 391 |
+| φ  (1.618)  |  68.9 | **258** |
+| φ² (2.618)  | 121.2 |  77 |
+| 2           |  92.1 | 201 |
+| e           | 126.2 |  57 |
+| 3/2         |  48.9 | 324 |
+| √2          |  48.8 | 325 |
 
-φ ranks in the **bottom third** — it is not preferred. The apparent
-strength of large bases (e, 3) is an artifact of the finite wavelength
-window: when the ratios lie in a narrow range, log_b(r) for large b
-automatically piles up near zero. Hydrogen alone shows a weak peak at
-b ≈ 1.615 (Z = 9.09 vs. 8.99 at φ), but this is within Monte-Carlo
-noise once the ~400-point multiple-comparison correction is applied.
-
-### Test 3 — Direct shell-radius prediction (`phi_shell_vs_bohr.py`)
-
-The most concrete reading of "φ governs shell geometry" is that
-shell radii scale as rₙ = r₀·φⁿ, giving energy levels Eₙ ∝ −1/φⁿ
-instead of the Bohr/Schrödinger Eₙ ∝ −1/n². Both models have one free
-constant; anchor each to Lyman-α and predict Ly-β through Ly-ε:
-
-| n | Observed λ (nm) | 1/n² pred | err % | 1/φⁿ pred | err % |
-|---|---|---|---|---|---|
-| 2 | 121.567 | 121.567 | anchor | 121.567 | anchor |
-| 3 | 102.572 | 102.572 | +0.000 |  75.13 | −26.75 |
-| 4 |  97.253 |  97.254 | +0.001 |  60.78 | −37.50 |
-| 5 |  94.974 |  94.974 | +0.000 |  54.37 | −42.76 |
-| 6 |  93.780 |  93.780 | +0.000 |  51.04 | −45.58 |
-
-RMS relative error (excluding the anchor):
-
-- **Bohr 1/n² model: 0.0004 %**
-- **φ-shell 1/φⁿ model: 38.8 %**
-- φ-shell is ~10⁵× worse.
+φ sits in the bottom third of candidate bases. The apparent preference
+for large bases (e, 3) is a finite-window artifact: when ratios live in
+a narrow range, log_b with large b compresses them near zero.
 
 ## Conclusion
 
-The spectral-line data reject the literal reading of "φ-spacing
-governs shell geometry." Specifically:
-
-1. Pairwise line ratios across H, He, Na, Fe, Ne do not cluster near
-   φᵏ more strongly than near φ-neighboring bases (φ is 258ᵗʰ of 391).
-2. Hydrogen energy levels follow 1/n² to 0.0004 % RMS; a φⁿ shell
-   spacing misses by ~40 %.
-3. Any non-uniformity found in log-ratio fractional parts is equally
-   present for integer and transcendental bases — a generic consequence
-   of discrete quantum spectra, not evidence for φ.
-
-The torus-geometry paper's core result — D = T·φ⁴ at cosmological
-scales — stands or falls on its own data. It does **not** appear to
-generalize into a φⁿ shell structure inside atoms, and claims in that
-direction are not supported by this dataset.
+Ratios in existing spectral data do **not** show φ-related harmonic
+relationships beyond what you'd get by chance. The ~7 ostensibly
+φ-close hits at 1 % tolerance are consistent with an empirical null
+(z = +0.69), and the ones that do occur are traceable to rational
+accidents of the Rydberg formula rather than any φ-structure. Three
+of the five elements give zero hits.
 
 ## Reproducing
 
 ```bash
 cd analysis
-python3 spectral_phi_analysis.py
-python3 spectral_phi_scan.py
-python3 phi_shell_vs_bohr.py
+python3 spectral_phi_analysis.py   # fixed-base clustering tests
+python3 spectral_phi_scan.py       # continuous base scan
+python3 phi_ratio_hits.py          # direct phi^k hit counts vs null
 ```
 
 Dependencies: `numpy`, `scipy`.
