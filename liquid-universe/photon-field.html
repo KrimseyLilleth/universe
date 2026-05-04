@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid Universe — Photon Field</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: Georgia, serif;
+            color: #fff;
+        }
+        #container { width: 100vw; height: 100vh; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 22px;
+            border-radius: 10px;
+            max-width: 320px;
+            border: 1px solid #333;
+        }
+        #info h1 {
+            font-size: 18px;
+            margin-bottom: 6px;
+            font-style: italic;
+        }
+        #info p {
+            font-size: 11px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+        #info .label {
+            color: #ccc;
+            font-size: 10px;
+            margin-top: 14px;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+        }
+        .gold { color: #ffd166; }
+        .cyan { color: #4ecdc4; }
+        .red { color: #ff6b6b; }
+        .green { color: #00ff88; }
+        .dim { color: #666; }
+        #modes {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            font-size: 12px;
+            min-width: 220px;
+        }
+        #modes button {
+            display: block;
+            width: 100%;
+            margin: 4px 0;
+            background: #1a1a1a;
+            color: #ddd;
+            border: 1px solid #444;
+            padding: 9px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: Georgia, serif;
+            font-size: 12px;
+            text-align: left;
+        }
+        #modes button.active {
+            background: #ffd166;
+            color: #000;
+            border-color: #ffd166;
+        }
+        #modes button:hover {
+            background: #2a2a2a;
+        }
+        #modes button.active:hover {
+            background: #ffd166;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            font-size: 11px;
+        }
+        #controls label {
+            display: block;
+            margin: 6px 0;
+            color: #999;
+        }
+        #controls input[type="range"] {
+            width: 160px;
+            vertical-align: middle;
+        }
+        #controls input[type="checkbox"] {
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        #controls .hint {
+            color: #666;
+            font-size: 9px;
+            margin-top: 4px;
+        }
+        #caption {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 16px 18px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            max-width: 340px;
+            font-size: 12px;
+            color: #bbb;
+            line-height: 1.55;
+        }
+        #caption h2 {
+            font-size: 13px;
+            color: #ffd166;
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <div id="info">
+        <h1>Liquid Universe</h1>
+        <p><span class="gold">The field</span> — a frictionless 3D lattice of beads, packed solid. There is no empty space.</p>
+        <p><span class="cyan">A photon</span> is not a thing. It is one bead-width of displacement traveling through. When a bead is knocked loose, the next bead falls in behind it. That propagating void is the photon.</p>
+        <p>Behind the displacement, a <span class="gold">torus wake</span> forms — a smoke ring trailing the flow. The wake is the same shape as the universe, recursing all the way down.</p>
+        <div class="label">
+            <span class="dim">Drag to rotate · Scroll to zoom</span>
+        </div>
+    </div>
+
+    <div id="modes">
+        <button data-mode="1" class="active">1 — One photon</button>
+        <button data-mode="2">2 — Echo chamber</button>
+        <button data-mode="3">3 — Black hole</button>
+    </div>
+
+    <div id="caption">
+        <h2 id="capTitle">One photon</h2>
+        <div id="capBody">
+            A single photon travels through the bead lattice. Behind it, a <span class="gold">torus wake</span> spins up — visible as the trailing ring of poloidal flow. The lattice beads near the wake are nudged from their rest positions; everywhere else they hold still.
+        </div>
+    </div>
+
+    <div id="controls">
+        <label>Photon speed: <input type="range" id="speed" min="5" max="100" value="40"></label>
+        <label>Auto-rotate: <input type="range" id="rot" min="0" max="100" value="15"></label>
+        <label><input type="checkbox" id="showLattice" checked> Show bead lattice</label>
+        <label><input type="checkbox" id="showWake" checked> Show wake</label>
+        <div class="hint">Drag · Scroll · Right-click drag to pan</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ===== Scene setup =====
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x040408);
+
+        const camera = new THREE.PerspectiveCamera(
+            50, window.innerWidth / window.innerHeight, 0.1, 1000
+        );
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ===== Manual orbit controls =====
+        let camTheta = 0.6;
+        let camPhi = 1.15;
+        let camRadius = 26;
+        let camTarget = new THREE.Vector3(0, 0, 0);
+        let isDragging = false, isPanning = false;
+        let lastX = 0, lastY = 0;
+
+        function updateCamera() {
+            camera.position.x = camTarget.x + camRadius * Math.sin(camPhi) * Math.cos(camTheta);
+            camera.position.y = camTarget.y + camRadius * Math.cos(camPhi);
+            camera.position.z = camTarget.z + camRadius * Math.sin(camPhi) * Math.sin(camTheta);
+            camera.lookAt(camTarget);
+        }
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            if (e.button === 2) isPanning = true;
+            else isDragging = true;
+            lastX = e.clientX; lastY = e.clientY;
+        });
+        window.addEventListener('mousemove', (e) => {
+            const dx = e.clientX - lastX, dy = e.clientY - lastY;
+            if (isDragging) {
+                camTheta -= dx * 0.01;
+                camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi - dy * 0.01));
+                updateCamera();
+            } else if (isPanning) {
+                const right = new THREE.Vector3(-Math.sin(camTheta), 0, Math.cos(camTheta));
+                const up = new THREE.Vector3(0, 1, 0);
+                camTarget.addScaledVector(right, -dx * 0.03);
+                camTarget.addScaledVector(up, dy * 0.03);
+                updateCamera();
+            }
+            lastX = e.clientX; lastY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+        renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+        renderer.domElement.addEventListener('wheel', (e) => {
+            camRadius = Math.max(4, Math.min(120, camRadius + e.deltaY * 0.025));
+            updateCamera();
+            e.preventDefault();
+        });
+        updateCamera();
+
+        // ===== Mode groups =====
+        const mode1Group = new THREE.Group();
+        const mode2Group = new THREE.Group();
+        const mode3Group = new THREE.Group();
+        scene.add(mode1Group, mode2Group, mode3Group);
+        mode2Group.visible = false;
+        mode3Group.visible = false;
+
+        // ============================================================
+        // MODE 1 — One photon, bead lattice, torus wake
+        // ============================================================
+
+        const N = 11;
+        const spacing = 1.4;
+        const halfExtent = (N - 1) / 2 * spacing;
+
+        const beadGeo = new THREE.SphereGeometry(0.09, 6, 6);
+        const beadMat = new THREE.MeshBasicMaterial({ color: 0x556680 });
+        const beadCount = N * N * N;
+        const beadMesh = new THREE.InstancedMesh(beadGeo, beadMat, beadCount);
+        mode1Group.add(beadMesh);
+
+        const restPos = new Float32Array(beadCount * 3);
+        {
+            let idx = 0;
+            for (let i = 0; i < N; i++)
+                for (let j = 0; j < N; j++)
+                    for (let k = 0; k < N; k++) {
+                        restPos[idx*3]   = (i - (N-1)/2) * spacing;
+                        restPos[idx*3+1] = (j - (N-1)/2) * spacing;
+                        restPos[idx*3+2] = (k - (N-1)/2) * spacing;
+                        idx++;
+                    }
+        }
+
+        // Photon
+        const photonCore = new THREE.Mesh(
+            new THREE.SphereGeometry(0.32, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xaaffee })
+        );
+        const photonGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(0.7, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0x4ecdc4, transparent: true, opacity: 0.3 })
+        );
+        const photonGlow2 = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0x4ecdc4, transparent: true, opacity: 0.08 })
+        );
+        mode1Group.add(photonCore, photonGlow, photonGlow2);
+
+        // Wake torus particles — many small dots riding the torus surface,
+        // showing both toroidal extent and poloidal rotation.
+        const wakeParticleCount = 700;
+        const wakePartGeo = new THREE.SphereGeometry(0.07, 5, 5);
+        const wakePartMat = new THREE.MeshBasicMaterial({
+            color: 0xffd166, transparent: true, opacity: 0.85
+        });
+        const wakeMesh = new THREE.InstancedMesh(wakePartGeo, wakePartMat, wakeParticleCount);
+        mode1Group.add(wakeMesh);
+
+        // Wake parameters
+        const wakeMajorR = 1.4;     // torus major radius
+        const wakeMinorR = 0.45;    // tube thickness
+        const wakeLength = 11;      // how far back the wake extends
+
+        // photon state
+        const photonRange = halfExtent + 1.5;
+        let photonX = -photonRange;
+
+        function updateMode1(t, dt) {
+            const speed = parseFloat(document.getElementById('speed').value) / 100 * 7;
+            photonX += speed * dt;
+            if (photonX > photonRange) photonX = -photonRange;
+
+            photonCore.position.set(photonX, 0, 0);
+            photonGlow.position.set(photonX, 0, 0);
+            photonGlow2.position.set(photonX, 0, 0);
+            const pulse = 1 + 0.18 * Math.sin(t * 9);
+            photonGlow.scale.setScalar(pulse);
+            photonGlow2.scale.setScalar(pulse * 1.05);
+
+            // Update bead lattice — small displacement near photon path / wake
+            const showLattice = document.getElementById('showLattice').checked;
+            beadMesh.visible = showLattice;
+            const dummy = new THREE.Object3D();
+
+            if (showLattice) {
+                for (let i = 0; i < beadCount; i++) {
+                    const rx = restPos[i*3];
+                    const ry = restPos[i*3+1];
+                    const rz = restPos[i*3+2];
+
+                    const dx = rx - photonX;
+                    const rho = Math.sqrt(ry*ry + rz*rz);
+
+                    let displacementX = 0, displacementY = 0, displacementZ = 0;
+                    let scale = 1;
+
+                    if (dx < 0 && dx > -wakeLength - 2) {
+                        const age = -dx;
+                        const decay = Math.exp(-age * 0.18);
+                        const dRho = rho - wakeMajorR;
+                        const tubeDistSq = dRho*dRho;
+
+                        if (tubeDistSq < (wakeMinorR * 1.6) * (wakeMinorR * 1.6)) {
+                            const phi = Math.atan2(rz, ry);
+                            const poloidalPhase = t * 3.5 + age * 1.3;
+                            const falloff = Math.exp(-tubeDistSq / (wakeMinorR * wakeMinorR));
+                            const amp = 0.22 * decay * falloff;
+
+                            displacementX = Math.sin(poloidalPhase) * amp;
+                            const radialDisp = Math.cos(poloidalPhase) * amp * Math.sign(dRho || 1);
+                            displacementY = radialDisp * (ry / Math.max(rho, 0.001));
+                            displacementZ = radialDisp * (rz / Math.max(rho, 0.001));
+                            scale = 1 + 1.4 * decay * falloff;
+                        }
+                    } else if (Math.abs(dx) < 0.6 && rho < 0.6) {
+                        // bead the photon is currently displacing
+                        scale = 0.3;
+                    }
+
+                    dummy.position.set(rx + displacementX, ry + displacementY, rz + displacementZ);
+                    dummy.scale.setScalar(scale);
+                    dummy.updateMatrix();
+                    beadMesh.setMatrixAt(i, dummy.matrix);
+                }
+                beadMesh.instanceMatrix.needsUpdate = true;
+            }
+
+            // Update wake torus particles
+            const showWake = document.getElementById('showWake').checked;
+            wakeMesh.visible = showWake;
+
+            if (showWake) {
+                for (let i = 0; i < wakeParticleCount; i++) {
+                    // distribute along trailing length
+                    const ageFrac = i / wakeParticleCount;
+                    const age = ageFrac * wakeLength;
+                    const xPos = photonX - age;
+
+                    // toroidal angle (around photon path axis)
+                    // give each particle a stable toroidal slot, plus slow drift
+                    const toroidalIdx = (i * 13) % 23;
+                    const toroidalAngle = (toroidalIdx / 23) * Math.PI * 2 + t * 0.15;
+
+                    // poloidal angle (around tube cross-section)
+                    // this is the smoke-ring spin; depends on toroidal angle so the ring twists
+                    const poloidalAngle = ((i * 7) % 11) / 11 * Math.PI * 2
+                                        + t * 4.2 + age * 1.8;
+
+                    // base position on torus tube center
+                    const ringY = wakeMajorR * Math.cos(toroidalAngle);
+                    const ringZ = wakeMajorR * Math.sin(toroidalAngle);
+
+                    // poloidal offset (in plane perpendicular to local tube tangent)
+                    // local tube tangent is along the toroidal direction (-sin,0,cos at this angle)
+                    // simpler: poloidal offset is in the plane (axial, radial)
+                    const tubeAxial = wakeMinorR * Math.sin(poloidalAngle);
+                    const tubeRadial = wakeMinorR * Math.cos(poloidalAngle);
+
+                    const px = xPos + tubeAxial;
+                    const py = ringY + tubeRadial * Math.cos(toroidalAngle);
+                    const pz = ringZ + tubeRadial * Math.sin(toroidalAngle);
+
+                    const decay = Math.exp(-age * 0.22);
+                    const s = 0.6 + 0.7 * decay;
+
+                    dummy.position.set(px, py, pz);
+                    dummy.scale.setScalar(s);
+                    dummy.updateMatrix();
+                    wakeMesh.setMatrixAt(i, dummy.matrix);
+                }
+                wakeMesh.instanceMatrix.needsUpdate = true;
+            }
+        }
+
+        // ============================================================
+        // MODE 2 — Echo chamber: many photons, cosmic-web reinforcement
+        // ============================================================
+
+        // We simulate ~25 photons flying along straight paths through a
+        // bounded region. Each leaves a trailing wake of fading particles.
+        // Where many wakes pass through the same volume, a glowing
+        // filamentary structure builds up — the "self-reinforcing paths".
+
+        const photonCount2 = 30;
+        const region2 = 18; // half-extent of region
+
+        const photons2 = [];
+        for (let i = 0; i < photonCount2; i++) {
+            photons2.push(makePhoton2());
+        }
+
+        function makePhoton2() {
+            // start somewhere on the boundary, travel through with random direction
+            // bias: directions are pulled slightly toward the origin to
+            // generate the dense central web
+            const startDir = new THREE.Vector3(
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2
+            ).normalize();
+            const start = startDir.clone().multiplyScalar(-region2 * (0.85 + Math.random() * 0.3));
+            const end = new THREE.Vector3(
+                (Math.random() - 0.5) * region2 * 1.4,
+                (Math.random() - 0.5) * region2 * 1.4,
+                (Math.random() - 0.5) * region2 * 1.4
+            );
+            const dir = end.clone().sub(start).normalize();
+            return {
+                pos: start,
+                dir: dir,
+                speed: 4 + Math.random() * 4,
+                life: 0,
+                maxLife: 6 + Math.random() * 4
+            };
+        }
+
+        // Photon dots in mode 2
+        const photonDotCount = photonCount2;
+        const photonDotGeo = new THREE.SphereGeometry(0.18, 8, 8);
+        const photonDotMat = new THREE.MeshBasicMaterial({ color: 0xaaffee });
+        const photonDotMesh = new THREE.InstancedMesh(photonDotGeo, photonDotMat, photonDotCount);
+        mode2Group.add(photonDotMesh);
+
+        // Persistent web: a buffer of points that fade. Each photon drops
+        // wake particles as it moves; particles dim slowly. Where many
+        // photons cross the same spot, points stack and shine brighter
+        // because their summed alpha goes up. We use BufferGeometry +
+        // additive blending so overlap = brightness.
+
+        const webMax = 14000;
+        const webGeo = new THREE.BufferGeometry();
+        const webPositions = new Float32Array(webMax * 3);
+        const webAlphas = new Float32Array(webMax);
+        const webColors = new Float32Array(webMax * 3);
+        webGeo.setAttribute('position', new THREE.BufferAttribute(webPositions, 3));
+        webGeo.setAttribute('color', new THREE.BufferAttribute(webColors, 3));
+
+        const webMat = new THREE.PointsMaterial({
+            size: 0.18,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            sizeAttenuation: true
+        });
+        const webPoints = new THREE.Points(webGeo, webMat);
+        mode2Group.add(webPoints);
+        let webCursor = 0;
+
+        function dropWake(p, count) {
+            // drop a small ring of wake particles around photon's position,
+            // perpendicular to its direction
+            // pick two basis vectors perpendicular to p.dir
+            const u = new THREE.Vector3();
+            const v = new THREE.Vector3();
+            if (Math.abs(p.dir.y) < 0.9) {
+                u.set(0, 1, 0).cross(p.dir).normalize();
+            } else {
+                u.set(1, 0, 0).cross(p.dir).normalize();
+            }
+            v.crossVectors(p.dir, u).normalize();
+
+            const r = 1.0 + Math.random() * 0.5; // wake torus radius for this photon
+            for (let k = 0; k < count; k++) {
+                const angle = Math.random() * Math.PI * 2;
+                const off = u.clone().multiplyScalar(Math.cos(angle) * r)
+                           .add(v.clone().multiplyScalar(Math.sin(angle) * r));
+                const wx = p.pos.x + off.x + (Math.random() - 0.5) * 0.2;
+                const wy = p.pos.y + off.y + (Math.random() - 0.5) * 0.2;
+                const wz = p.pos.z + off.z + (Math.random() - 0.5) * 0.2;
+
+                const idx = webCursor;
+                webPositions[idx*3]   = wx;
+                webPositions[idx*3+1] = wy;
+                webPositions[idx*3+2] = wz;
+                webAlphas[idx] = 1.0;
+                // color leans gold
+                webColors[idx*3]   = 1.0;
+                webColors[idx*3+1] = 0.82;
+                webColors[idx*3+2] = 0.4;
+                webCursor = (webCursor + 1) % webMax;
+            }
+        }
+
+        function updateMode2(t, dt) {
+            const speedMul = parseFloat(document.getElementById('speed').value) / 40;
+            const dummy = new THREE.Object3D();
+
+            for (let i = 0; i < photons2.length; i++) {
+                const p = photons2[i];
+                p.pos.addScaledVector(p.dir, p.speed * speedMul * dt);
+                p.life += dt;
+
+                // drop wake
+                dropWake(p, 1);
+
+                // photon dot
+                dummy.position.copy(p.pos);
+                dummy.scale.setScalar(1);
+                dummy.updateMatrix();
+                photonDotMesh.setMatrixAt(i, dummy.matrix);
+
+                // respawn
+                if (p.life > p.maxLife
+                    || Math.abs(p.pos.x) > region2 * 1.2
+                    || Math.abs(p.pos.y) > region2 * 1.2
+                    || Math.abs(p.pos.z) > region2 * 1.2) {
+                    photons2[i] = makePhoton2();
+                }
+            }
+            photonDotMesh.instanceMatrix.needsUpdate = true;
+
+            // fade web
+            const fade = Math.exp(-dt * 0.12);
+            for (let i = 0; i < webMax; i++) {
+                webAlphas[i] *= fade;
+                const a = webAlphas[i];
+                webColors[i*3]   = a * 1.0;
+                webColors[i*3+1] = a * 0.82;
+                webColors[i*3+2] = a * 0.4;
+            }
+            webGeo.attributes.position.needsUpdate = true;
+            webGeo.attributes.color.needsUpdate = true;
+        }
+
+        // ============================================================
+        // MODE 3 — Black hole: tumbling-torus core + flattening
+        // ============================================================
+
+        // Visible elements:
+        //   - inflowing photons from all directions
+        //   - central spinning sphere (the locked core)
+        //   - two interlocked tori orbiting the sphere (the "tumbling
+        //     torus" that holds it in spherical lock)
+        //   - over a slow cycle, the tori flatten into a disc and the
+        //     sphere oblates ("flattening and spreading")
+
+        const inflowCount = 60;
+        const inflowGeo = new THREE.SphereGeometry(0.13, 6, 6);
+        const inflowMat = new THREE.MeshBasicMaterial({ color: 0x4ecdc4 });
+        const inflowMesh = new THREE.InstancedMesh(inflowGeo, inflowMat, inflowCount);
+        mode3Group.add(inflowMesh);
+
+        const inflows = [];
+        for (let i = 0; i < inflowCount; i++) inflows.push(makeInflow());
+
+        function makeInflow() {
+            const dir = new THREE.Vector3(
+                Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5
+            ).normalize();
+            const startDist = 14 + Math.random() * 6;
+            const pos = dir.clone().multiplyScalar(startDist);
+            // velocity points toward origin, with slight tangential component
+            // for the swirl
+            const tangent = new THREE.Vector3(
+                Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5
+            ).cross(dir).normalize();
+            const v = dir.clone().multiplyScalar(-1).add(
+                tangent.multiplyScalar(0.35 + Math.random() * 0.3)
+            ).normalize();
+            return { pos, vel: v, speed: 3 + Math.random() * 2 };
+        }
+
+        // Central sphere
+        const coreSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0x111122 })
+        );
+        const coreGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(1.4, 32, 32),
+            new THREE.MeshBasicMaterial({
+                color: 0x4ecdc4, transparent: true, opacity: 0.18
+            })
+        );
+        mode3Group.add(coreSphere, coreGlow);
+
+        // Two interlocked tori
+        const torusA = new THREE.Mesh(
+            new THREE.TorusGeometry(2.2, 0.18, 12, 64),
+            new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.85 })
+        );
+        const torusB = new THREE.Mesh(
+            new THREE.TorusGeometry(2.2, 0.18, 12, 64),
+            new THREE.MeshBasicMaterial({ color: 0xffaa44, transparent: true, opacity: 0.85 })
+        );
+        mode3Group.add(torusA, torusB);
+
+        // Tumbling torus particles (gold dots traveling along each torus,
+        // making the rotation visible)
+        const torusDotsCount = 240;
+        const torusDotGeo = new THREE.SphereGeometry(0.08, 5, 5);
+        const torusDotMat = new THREE.MeshBasicMaterial({
+            color: 0xffe28a, transparent: true, opacity: 0.95
+        });
+        const torusDotMesh = new THREE.InstancedMesh(torusDotGeo, torusDotMat, torusDotsCount);
+        mode3Group.add(torusDotMesh);
+
+        // Cycle controlling flattening: 0 = spherical lock, 1 = flattened disc
+        // ping-pongs slowly so the user sees the lifecycle
+        let bhCycle = 0; // 0..2π; flatten = sin scale
+
+        function updateMode3(t, dt) {
+            const speedMul = parseFloat(document.getElementById('speed').value) / 40;
+            bhCycle += dt * 0.12 * speedMul;
+
+            // Flattening factor: 0 = full spherical (two perpendicular tori),
+            // 1 = fully collapsed onto one disc plane
+            const f = 0.5 - 0.5 * Math.cos(bhCycle); // 0..1..0..1...
+
+            // Inflow particles
+            const dummy = new THREE.Object3D();
+            for (let i = 0; i < inflowCount; i++) {
+                const p = inflows[i];
+                // accelerate toward origin
+                const toCenter = p.pos.clone().multiplyScalar(-1);
+                const dist = p.pos.length();
+                const grav = toCenter.normalize().multiplyScalar(
+                    Math.min(8, 12 / Math.max(dist*dist*0.1, 0.5))
+                );
+                p.vel.addScaledVector(grav, dt);
+                // cap velocity
+                if (p.vel.length() > 6) p.vel.setLength(6);
+                p.pos.addScaledVector(p.vel, dt * speedMul);
+
+                // when very close, respawn at outer radius
+                if (dist < 1.4) {
+                    Object.assign(p, makeInflow());
+                }
+                // also respawn if too far
+                if (dist > 22) Object.assign(p, makeInflow());
+
+                dummy.position.copy(p.pos);
+                dummy.scale.setScalar(1);
+                dummy.updateMatrix();
+                inflowMesh.setMatrixAt(i, dummy.matrix);
+            }
+            inflowMesh.instanceMatrix.needsUpdate = true;
+
+            // Core sphere oblates as it flattens
+            coreSphere.scale.set(1 + 0.25 * f, 1 - 0.55 * f, 1 + 0.25 * f);
+            coreGlow.scale.copy(coreSphere.scale).multiplyScalar(1.05);
+            coreSphere.rotation.y += dt * 0.6 * speedMul;
+            coreGlow.rotation.y = coreSphere.rotation.y;
+
+            // Tori: torusA in xy plane (rotating), torusB in xz plane.
+            // As f → 1, both pull toward the same plane (xz).
+            // torusA's normal is z-axis when in xy plane; rotate it to align with y when not flattened
+            // torusB's normal is y-axis when in xz plane; that's our "disc" plane
+
+            // torusA tumble (precession): when f=0 it spins on multiple axes;
+            // when f=1 it has collapsed into the equatorial plane
+            torusA.rotation.x = Math.PI / 2 * (1 - f); // 0 when flat (in xz plane), π/2 when in xy
+            torusA.rotation.z = t * 0.4 * (1 - f);
+            torusA.rotation.y = t * 0.7;
+
+            torusB.rotation.x = Math.PI / 2;
+            torusB.rotation.y = t * 0.5;
+            torusB.rotation.z = Math.PI / 2 * (1 - f); // when not flat, perpendicular axis
+
+            // Both tori squash slightly when flattening
+            const torusSquash = 1 - 0.15 * f;
+            torusA.scale.set(1, 1, torusSquash);
+            torusB.scale.set(1, 1, torusSquash);
+
+            // Particles riding the tori
+            for (let i = 0; i < torusDotsCount; i++) {
+                const onA = i < torusDotsCount / 2;
+                const idx = onA ? i : i - torusDotsCount / 2;
+                const total = torusDotsCount / 2;
+                const phase = (idx / total) * Math.PI * 2 + t * (onA ? 1.4 : -1.2);
+                const R = 2.2;
+                const r = 0.18;
+                // poloidal small offset
+                const polo = ((idx * 7) % 13) / 13 * Math.PI * 2 + t * 3;
+
+                // base ring position (centered on origin)
+                let lx = Math.cos(phase) * (R + r * Math.cos(polo));
+                let ly = r * Math.sin(polo);
+                let lz = Math.sin(phase) * (R + r * Math.cos(polo));
+
+                // apply same orientation as the parent torus
+                const target = onA ? torusA : torusB;
+                const v = new THREE.Vector3(lx, ly, lz);
+                v.applyEuler(target.rotation);
+                v.multiply(target.scale);
+
+                dummy.position.copy(v);
+                dummy.scale.setScalar(1);
+                dummy.updateMatrix();
+                torusDotMesh.setMatrixAt(i, dummy.matrix);
+            }
+            torusDotMesh.instanceMatrix.needsUpdate = true;
+        }
+
+        // ============================================================
+        // Mode switching + animation loop
+        // ============================================================
+
+        let activeMode = 1;
+
+        const captionTexts = {
+            1: {
+                title: 'One photon',
+                body: 'A single photon is a one-bead-wide displacement traveling left to right. Behind it, a <span class="gold">torus wake</span> spins up — visible as the trailing ring of poloidal flow. The bead lattice is the medium; everywhere outside the wake, beads sit at rest.'
+            },
+            2: {
+                title: 'Echo chamber',
+                body: 'Many photons crossing the same volume. Their wakes overlap; where flows reinforce each other, glowing channels persist. This is the <span class="gold">cosmic web</span> — a self-organizing filament structure that emerges from nothing more than the sum of every photon\'s trail.'
+            },
+            3: {
+                title: 'Black hole',
+                body: 'Where the web traps a self-reinforcing knot, flow accumulates from all directions. A <span class="gold">tumbling torus</span> locks a spinning core in place. Pelted from every angle, the lock eventually <span class="cyan">flattens and spreads</span> — disc-like, oblate — before reorganizing.'
+            }
+        };
+
+        function setMode(m) {
+            activeMode = m;
+            mode1Group.visible = (m === 1);
+            mode2Group.visible = (m === 2);
+            mode3Group.visible = (m === 3);
+            document.querySelectorAll('#modes button').forEach(b => {
+                b.classList.toggle('active', parseInt(b.dataset.mode) === m);
+            });
+            document.getElementById('capTitle').textContent = captionTexts[m].title;
+            document.getElementById('capBody').innerHTML = captionTexts[m].body;
+
+            // Reset / hide lattice toggle visibility for non-mode-1
+            const showLatticeLabel = document.getElementById('showLattice').parentElement;
+            const showWakeLabel = document.getElementById('showWake').parentElement;
+            showLatticeLabel.style.display = (m === 1) ? 'block' : 'none';
+            showWakeLabel.style.display = (m === 1) ? 'block' : 'none';
+
+            // appropriate camera distance per mode
+            if (m === 1) camRadius = 26;
+            else if (m === 2) camRadius = 42;
+            else camRadius = 32;
+            updateCamera();
+        }
+
+        document.querySelectorAll('#modes button').forEach(b => {
+            b.addEventListener('click', () => setMode(parseInt(b.dataset.mode)));
+        });
+        setMode(1);
+
+        const clock = new THREE.Clock();
+        let elapsed = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.05);
+            elapsed += dt;
+
+            // auto-rotate
+            const rotSpeed = parseFloat(document.getElementById('rot').value) / 100 * 0.4;
+            camTheta += rotSpeed * dt;
+            updateCamera();
+
+            if (activeMode === 1) updateMode1(elapsed, dt);
+            else if (activeMode === 2) updateMode2(elapsed, dt);
+            else if (activeMode === 3) updateMode3(elapsed, dt);
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
