@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mayan Calendar Round — Torus of Two Cycles</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: Georgia, serif;
+            color: #f3e5c0;
+        }
+        #container { width: 100vw; height: 100vh; }
+
+        .panel {
+            position: absolute;
+            background: rgba(12, 8, 4, 0.88);
+            padding: 16px 18px;
+            border-radius: 10px;
+            border: 1px solid #4a3520;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7), inset 0 0 20px rgba(80,40,10,0.15);
+        }
+
+        #info {
+            top: 20px;
+            left: 20px;
+            max-width: 320px;
+        }
+        #info h1 {
+            font-size: 19px;
+            color: #f0c878;
+            font-style: italic;
+            margin-bottom: 4px;
+            letter-spacing: 1px;
+        }
+        #info .sub {
+            font-size: 11px;
+            color: #c9a36b;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+        #info p {
+            font-size: 11px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            color: #b09a78;
+        }
+        #info .label {
+            color: #8a7a5a;
+            font-size: 10px;
+            margin-top: 12px;
+            border-top: 1px solid #3a2a18;
+            padding-top: 10px;
+            line-height: 1.6;
+        }
+        .gold { color: #f0c878; }
+        .jade { color: #6cc3a8; }
+        .ember { color: #ff8c42; }
+
+        #readout {
+            top: 20px;
+            right: 20px;
+            min-width: 260px;
+            font-size: 13px;
+        }
+        #readout .lbl {
+            color: #8a7a5a;
+            font-size: 10px;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        #readout .lbl:first-child { margin-top: 0; }
+        #readout .val {
+            color: #f0c878;
+            font-size: 17px;
+            font-weight: bold;
+            font-family: Georgia, serif;
+        }
+        #readout .small {
+            color: #c9a36b;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        #readout hr {
+            border: none;
+            border-top: 1px solid #3a2a18;
+            margin: 12px 0 8px 0;
+        }
+
+        #controls {
+            bottom: 20px;
+            left: 20px;
+            font-size: 11px;
+            min-width: 280px;
+        }
+        #controls h2 {
+            font-size: 12px;
+            color: #f0c878;
+            margin-bottom: 10px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #3a2a18;
+            padding-bottom: 6px;
+        }
+        #controls label {
+            display: block;
+            margin: 6px 0;
+            color: #b09a78;
+        }
+        #controls input[type="range"] {
+            width: 160px;
+            vertical-align: middle;
+            accent-color: #f0c878;
+        }
+        #controls input[type="checkbox"] {
+            vertical-align: middle;
+            margin-right: 6px;
+            accent-color: #f0c878;
+        }
+        #controls input[type="date"] {
+            background: #1a1208;
+            color: #f3e5c0;
+            border: 1px solid #4a3520;
+            border-radius: 4px;
+            padding: 3px 5px;
+            font-family: Georgia, serif;
+            font-size: 11px;
+        }
+        #controls button {
+            background: #2a1d10;
+            color: #f0c878;
+            border: 1px solid #4a3520;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-family: Georgia, serif;
+            font-size: 11px;
+            cursor: pointer;
+            margin: 3px 2px;
+            transition: all 0.15s;
+        }
+        #controls button:hover {
+            background: #3a2918;
+            color: #ffd494;
+            box-shadow: 0 0 8px rgba(240,200,120,0.3);
+        }
+        #controls .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 6px 0;
+        }
+        #controls .speedval {
+            display: inline-block;
+            color: #f0c878;
+            min-width: 60px;
+            text-align: right;
+            font-family: monospace;
+        }
+        #footnote {
+            bottom: 20px;
+            right: 20px;
+            font-size: 10px;
+            color: #8a7a5a;
+            max-width: 280px;
+            line-height: 1.5;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <div id="info" class="panel">
+        <h1>The Calendar Round</h1>
+        <div class="sub">Two sacred cycles, one woven body</div>
+        <p><span class="gold">Tzolk'in</span> — 260 days, the long way around. Thirteen numbers turning against twenty day-names.</p>
+        <p><span class="jade">Haab'</span> — 365 days, the short way around. Eighteen months of twenty days, plus the five-day Wayeb.</p>
+        <p>Each day the path advances one step on both cycles at once. It does not return to its starting point until 18,980 days have passed — fifty-two solar years.</p>
+        <div class="label">
+            <span class="gold">260 = 13 × 20</span> (coprime — full cycle)<br>
+            <span class="jade">LCM(260, 365) = 18,980</span><br>
+            = 52 Haab' = 73 Tzolk'in<br>
+            <br>
+            Drag to rotate · Scroll to zoom<br>
+            Right-click drag to pan
+        </div>
+    </div>
+
+    <div id="readout" class="panel">
+        <div class="lbl">Tzolk'in</div>
+        <div class="val" id="tzolkinText">4 Ahau</div>
+        <div class="lbl">Haab'</div>
+        <div class="val" id="haabText">8 Cumku</div>
+        <hr>
+        <div class="lbl">Long Count</div>
+        <div class="small" id="longCountText">0.0.0.0.0</div>
+        <div class="lbl">Gregorian</div>
+        <div class="small" id="gregText">11 Aug 3114 BCE</div>
+        <hr>
+        <div class="lbl">Calendar Round Progress</div>
+        <div class="small" id="progressText">0 / 18,980 days · 0.00%</div>
+        <div class="small" id="elapsedText" style="margin-top:4px;">0 years elapsed</div>
+    </div>
+
+    <div id="controls" class="panel">
+        <h2>Controls</h2>
+        <label>
+            Speed: <input type="range" id="speedSlider" min="-30" max="100" value="20">
+            <span class="speedval" id="speedVal">20 d/s</span>
+        </label>
+        <div class="row">
+            <button id="playPauseBtn">▶ Play</button>
+            <button id="resetBtn">↺ Creation</button>
+            <button id="todayBtn">◉ Today</button>
+        </div>
+        <label>Jump to date:
+            <input type="date" id="dateInput" value="2026-05-05">
+            <button id="jumpBtn">Go</button>
+        </label>
+        <label><input type="checkbox" id="showFullPath"> Show full 52-year path</label>
+        <label><input type="checkbox" id="showGrid" checked> Surface grid lines</label>
+        <label><input type="checkbox" id="showYearStarts" checked> Year-start markers</label>
+        <label><input type="checkbox" id="longCountSpin"> Long Count precession</label>
+    </div>
+
+    <div id="footnote" class="panel">
+        The torus is the natural home for any system of two coupled cycles. The Mayans saw time as woven, not linear — strands meeting and parting in eternal return.
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    // ===========================================================
+    // Mayan Calendar constants
+    // ===========================================================
+    // Tzolk'in: 13 numbers cycle against 20 day-names.
+    // Because 13 and 20 are coprime, every (number, name) pair
+    // appears exactly once before repeating — hence 260 days.
+    const TZOLKIN_DAYS = 260;
+    // Haab': 18 months of 20 days + 5-day Wayeb = 365 days.
+    const HAAB_DAYS = 365;
+    // Calendar Round: LCM(260, 365). Their GCD is 5 (both share
+    // a factor of 5), so LCM = 260*365/5 = 18,980 days = 52 Haab'.
+    const CALENDAR_ROUND = 18980;
+    // GMT correlation: maps Maya day count to Julian Day Number.
+    // 0.0.0.0.0 = JDN 584283 = 11 August 3114 BCE (Gregorian).
+    const GMT_CORRELATION = 584283;
+
+    const TZOLKIN_NAMES = [
+        "Imix", "Ik'", "Akbal", "K'an", "Chikchan",
+        "Kimi", "Manik'", "Lamat", "Muluk", "Ok",
+        "Chuwen", "Eb", "Ben", "Ix", "Men",
+        "K'ib'", "Kaban", "Etznab", "Kawak", "Ahau"
+    ];
+    const HAAB_MONTHS = [
+        "Pop", "Wo", "Sip", "Sotz'", "Tzek", "Xul",
+        "Yaxk'in", "Mol", "Chen", "Yax", "Sak", "Keh",
+        "Mak", "Kankin", "Muwan", "Pax", "Kayab", "Cumku",
+        "Wayeb"
+    ];
+
+    // On day 0 of the Long Count, the Calendar Round position
+    // is 4 Ahau 8 Cumku. We use this to anchor the offsets.
+    function tzolkinFor(d) {
+        const num = ((((d + 3) % 13) + 13) % 13) + 1;        // 4 Ahau on d=0 → number 4
+        const idx = (((d + 19) % 20) + 20) % 20;             // Ahau is index 19
+        return { num: num, idx: idx, name: TZOLKIN_NAMES[idx], label: num + " " + TZOLKIN_NAMES[idx] };
+    }
+    function haabFor(d) {
+        const pos = (((d + 348) % 365) + 365) % 365;         // 8 Cumku = 17*20 + 8 = 348
+        const month = Math.min(Math.floor(pos / 20), 18);
+        const day = pos - month * 20;
+        return { pos: pos, month: month, day: day, name: HAAB_MONTHS[month], label: day + " " + HAAB_MONTHS[month] };
+    }
+    function longCountFor(d) {
+        // Negative day counts (before creation) wrap into a great cycle for display.
+        let n = d;
+        if (n < 0) n = ((n % 2880000) + 2880000) % 2880000;
+        const baktun = Math.floor(n / 144000); n %= 144000;
+        const katun  = Math.floor(n / 7200);   n %= 7200;
+        const tun    = Math.floor(n / 360);    n %= 360;
+        const uinal  = Math.floor(n / 20);     n %= 20;
+        const kin    = n;
+        return baktun + "." + katun + "." + tun + "." + uinal + "." + kin;
+    }
+
+    // Gregorian → Julian Day Number (proleptic Gregorian, valid for all dates)
+    function gregorianToJDN(y, m, d) {
+        const a = Math.floor((14 - m) / 12);
+        const yy = y + 4800 - a;
+        const mm = m + 12 * a - 3;
+        return d + Math.floor((153 * mm + 2) / 5) + 365 * yy
+             + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+    }
+    function jdnToGregorian(jdn) {
+        let a = jdn + 32044;
+        let b = Math.floor((4 * a + 3) / 146097);
+        let c = a - Math.floor((146097 * b) / 4);
+        let d = Math.floor((4 * c + 3) / 1461);
+        let e = c - Math.floor((1461 * d) / 4);
+        let m = Math.floor((5 * e + 2) / 153);
+        const day = e - Math.floor((153 * m + 2) / 5) + 1;
+        const month = m + 3 - 12 * Math.floor(m / 10);
+        const year = 100 * b + d - 4800 + Math.floor(m / 10);
+        return { year: year, month: month, day: day };
+    }
+    function dayCountToGregorianText(d) {
+        const jdn = d + GMT_CORRELATION;
+        const g = jdnToGregorian(jdn);
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const yLabel = g.year > 0 ? g.year + " CE" : (1 - g.year) + " BCE";
+        return g.day + " " + monthNames[g.month - 1] + " " + yLabel;
+    }
+
+    // ===========================================================
+    // Three.js scene
+    // ===========================================================
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x040207);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.getElementById('container').appendChild(renderer.domElement);
+
+    // Star backdrop
+    (function makeStars() {
+        const starGeo = new THREE.BufferGeometry();
+        const N = 1500;
+        const pos = new Float32Array(N * 3);
+        const col = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+            const r = 80 + Math.random() * 40;
+            const t = Math.random() * Math.PI * 2;
+            const p = Math.acos(2 * Math.random() - 1);
+            pos[i*3]   = r * Math.sin(p) * Math.cos(t);
+            pos[i*3+1] = r * Math.cos(p);
+            pos[i*3+2] = r * Math.sin(p) * Math.sin(t);
+            const tone = 0.5 + Math.random() * 0.5;
+            col[i*3]   = tone;
+            col[i*3+1] = tone * (0.85 + Math.random() * 0.15);
+            col[i*3+2] = tone * (0.7 + Math.random() * 0.2);
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        starGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+            size: 0.4, vertexColors: true, sizeAttenuation: true, transparent: true, opacity: 0.85
+        }));
+        scene.add(stars);
+    })();
+
+    // ===========================================================
+    // Camera controls (drag, pan, zoom)
+    // ===========================================================
+    let spherical = { theta: Math.PI / 4, phi: Math.PI / 2.4, radius: 11 };
+    let lookAt = new THREE.Vector3(0, 0, 0);
+    let isDragging = false, isPanning = false, lastMouse = { x: 0, y: 0 };
+
+    document.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.panel')) return;
+        if (e.button === 2 || e.shiftKey) isPanning = true;
+        else isDragging = true;
+        lastMouse = { x: e.clientX, y: e.clientY };
+    });
+    document.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('mousemove', (e) => {
+        const dx = e.clientX - lastMouse.x;
+        const dy = e.clientY - lastMouse.y;
+        if (isDragging) {
+            spherical.theta -= dx * 0.005;
+            spherical.phi  -= dy * 0.005;
+            spherical.phi = Math.max(0.15, Math.min(Math.PI - 0.15, spherical.phi));
+        }
+        if (isPanning) {
+            const panSpeed = spherical.radius * 0.0015;
+            const fwd = new THREE.Vector3().subVectors(lookAt, camera.position).normalize();
+            const right = new THREE.Vector3().crossVectors(fwd, camera.up).normalize();
+            const up = new THREE.Vector3().crossVectors(right, fwd).normalize();
+            lookAt.addScaledVector(right, -dx * panSpeed);
+            lookAt.addScaledVector(up,    dy * panSpeed);
+        }
+        lastMouse = { x: e.clientX, y: e.clientY };
+    });
+    document.addEventListener('wheel', (e) => {
+        if (e.target.closest('.panel')) return;
+        spherical.radius += e.deltaY * 0.008;
+        spherical.radius = Math.max(4, Math.min(40, spherical.radius));
+    });
+    // Touch
+    let touchPrev = null, pinchPrev = null;
+    document.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.panel')) return;
+        if (e.touches.length === 1) touchPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            pinchPrev = Math.hypot(dx, dy);
+        }
+    });
+    document.addEventListener('touchmove', (e) => {
+        if (e.target.closest('.panel')) return;
+        if (e.touches.length === 1 && touchPrev) {
+            const dx = e.touches[0].clientX - touchPrev.x;
+            const dy = e.touches[0].clientY - touchPrev.y;
+            spherical.theta -= dx * 0.005;
+            spherical.phi  -= dy * 0.005;
+            spherical.phi = Math.max(0.15, Math.min(Math.PI - 0.15, spherical.phi));
+            touchPrev = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        } else if (e.touches.length === 2 && pinchPrev) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            spherical.radius *= pinchPrev / dist;
+            spherical.radius = Math.max(4, Math.min(40, spherical.radius));
+            pinchPrev = dist;
+        }
+    });
+    document.addEventListener('touchend', () => { touchPrev = null; pinchPrev = null; });
+
+    // ===========================================================
+    // Torus
+    // ===========================================================
+    // The major circle (long way around, angle u) carries the Tzolk'in (260 days).
+    // The minor circle (short way around, angle v) carries the Haab' (365 days).
+    // Surface point (u, v) is the unique combination of those two days.
+    const R_MAJOR = 4.0;   // major radius
+    const R_MINOR = 1.5;   // minor radius
+
+    // Container that we can rotate for the optional Long Count precession.
+    const torusGroup = new THREE.Group();
+    scene.add(torusGroup);
+
+    function torusPoint(u, v, rOffset = 0) {
+        const r = R_MINOR + rOffset;
+        const x = (R_MAJOR + r * Math.cos(v)) * Math.cos(u);
+        const y = r * Math.sin(v);
+        const z = (R_MAJOR + r * Math.cos(v)) * Math.sin(u);
+        return new THREE.Vector3(x, y, z);
+    }
+    function torusNormal(u, v) {
+        // Outward surface normal at (u,v)
+        return new THREE.Vector3(
+            Math.cos(v) * Math.cos(u),
+            Math.sin(v),
+            Math.cos(v) * Math.sin(u)
+        );
+    }
+
+    // Surface mesh — limestone / aged jade tones
+    const torusGeom = new THREE.TorusGeometry(R_MAJOR, R_MINOR, 96, 200);
+    // TorusGeometry parameter convention: rotated so axis is z. We want axis = y.
+    // Simplest fix: rotate the mesh.
+    const torusMat = new THREE.MeshStandardMaterial({
+        color: 0x6b5535,
+        emissive: 0x1a0e05,
+        roughness: 0.85,
+        metalness: 0.15,
+        flatShading: false
+    });
+    const torusMesh = new THREE.Mesh(torusGeom, torusMat);
+    torusMesh.rotation.x = Math.PI / 2;
+    torusGroup.add(torusMesh);
+
+    // Lighting — warm sunset feel
+    const ambient = new THREE.AmbientLight(0x553322, 0.45);
+    scene.add(ambient);
+    const keyLight = new THREE.DirectionalLight(0xffcc88, 1.1);
+    keyLight.position.set(8, 10, 6);
+    scene.add(keyLight);
+    const rimLight = new THREE.DirectionalLight(0x4488aa, 0.4);
+    rimLight.position.set(-6, 4, -8);
+    scene.add(rimLight);
+    const fillLight = new THREE.DirectionalLight(0xff7733, 0.3);
+    fillLight.position.set(0, -8, 4);
+    scene.add(fillLight);
+
+    // ===========================================================
+    // Surface markings (grid lines, year-start markers)
+    // ===========================================================
+    const gridGroup = new THREE.Group();
+    torusGroup.add(gridGroup);
+
+    // Tzolk'in: 20 day-name lines around the minor circumference at 20 evenly-spaced
+    // u positions (one per day-name slot). Brighter at every name boundary.
+    function buildTzolkinNameLines() {
+        const segs = 80;
+        for (let k = 0; k < 20; k++) {
+            const u = (k / 20) * Math.PI * 2;
+            const pts = [];
+            for (let j = 0; j <= segs; j++) {
+                const v = (j / segs) * Math.PI * 2;
+                pts.push(torusPoint(u, v, 0.005));
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+                color: 0xc7a86b, transparent: true, opacity: 0.55
+            }));
+            gridGroup.add(line);
+        }
+    }
+    // Haab': 18 month-start lines around the major circumference plus the Wayeb start.
+    function buildHaabMonthLines() {
+        const segs = 200;
+        for (let k = 0; k < 19; k++) {
+            const haabPos = k * 20;                 // first day of each month (Wayeb at 360)
+            const v = (haabPos / 365) * Math.PI * 2;
+            const pts = [];
+            for (let j = 0; j <= segs; j++) {
+                const u = (j / segs) * Math.PI * 2;
+                pts.push(torusPoint(u, v, 0.005));
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const isWayeb = (k === 18);
+            const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+                color: isWayeb ? 0xff6644 : 0x6cc3a8,
+                transparent: true,
+                opacity: isWayeb ? 0.7 : 0.45
+            }));
+            gridGroup.add(line);
+        }
+    }
+    // Faint subdivision tick rings for every Tzolk'in day along the minor circumference
+    function buildTzolkinTicks() {
+        // 260 short tick segments along the major direction at each Tzolk'in day position.
+        // Drawing 260 rings would be visually heavy; instead we draw small radial whiskers
+        // at v=0 (the outer equator) for each day.
+        const pts = [];
+        for (let k = 0; k < 260; k++) {
+            const u = (k / 260) * Math.PI * 2;
+            const v = 0;
+            const p1 = torusPoint(u, v, 0);
+            const p2 = torusPoint(u, v, 0.06);
+            pts.push(p1, p2);
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const mat = new THREE.LineBasicMaterial({ color: 0xf0c878, transparent: true, opacity: 0.35 });
+        gridGroup.add(new THREE.LineSegments(geo, mat));
+    }
+    buildTzolkinNameLines();
+    buildHaabMonthLines();
+    buildTzolkinTicks();
+
+    // Year-start markers: every 0 Pop across the 52-year cycle (52 small bright dots
+    // wrapping around the torus). These are the days that begin a new Haab' year.
+    const yearStartGroup = new THREE.Group();
+    torusGroup.add(yearStartGroup);
+    function buildYearStartMarkers() {
+        // Day 0 is 8 Cumku → first 0 Pop is 17 days later, then every 365 days.
+        const dotGeo = new THREE.SphereGeometry(0.06, 12, 8);
+        const dotMat = new THREE.MeshBasicMaterial({ color: 0xff9b3a });
+        const firstNewYear = 17;
+        for (let i = 0; i < 52; i++) {
+            const d = firstNewYear + i * 365;
+            if (d >= CALENDAR_ROUND) break;
+            const u = (d % TZOLKIN_DAYS) / TZOLKIN_DAYS * Math.PI * 2;
+            const v = (d % HAAB_DAYS)    / HAAB_DAYS    * Math.PI * 2;
+            const dot = new THREE.Mesh(dotGeo, dotMat);
+            dot.position.copy(torusPoint(u, v, 0.04));
+            yearStartGroup.add(dot);
+        }
+    }
+    buildYearStartMarkers();
+
+    // ===========================================================
+    // The daily path — a glowing helical winding around the torus
+    // ===========================================================
+    // Each day advances by 2π/260 in u and 2π/365 in v simultaneously.
+    // Because gcd(260,365)=5, after 18,980 days the path closes and would
+    // begin to retrace. We precompute all points and use draw range to
+    // either show the trail-up-to-now or the full woven pattern.
+    const pathPositions = new Float32Array((CALENDAR_ROUND + 1) * 3);
+    const pathColors    = new Float32Array((CALENDAR_ROUND + 1) * 3);
+
+    function buildPathGeometry() {
+        for (let i = 0; i <= CALENDAR_ROUND; i++) {
+            const u = (i % TZOLKIN_DAYS) / TZOLKIN_DAYS * Math.PI * 2;
+            const v = (i % HAAB_DAYS)    / HAAB_DAYS    * Math.PI * 2;
+            const p = torusPoint(u, v, 0.07);
+            pathPositions[i*3]   = p.x;
+            pathPositions[i*3+1] = p.y;
+            pathPositions[i*3+2] = p.z;
+            // Color shifts slowly across the cycle: gold → ember → jade → gold
+            const t = i / CALENDAR_ROUND;
+            const hue = (0.10 + 0.55 * t) % 1.0;     // gold (~0.10) drifting through reds, jade
+            const c = new THREE.Color().setHSL(hue, 0.75, 0.55);
+            pathColors[i*3]   = c.r;
+            pathColors[i*3+1] = c.g;
+            pathColors[i*3+2] = c.b;
+        }
+    }
+    buildPathGeometry();
+
+    const pathGeom = new THREE.BufferGeometry();
+    pathGeom.setAttribute('position', new THREE.BufferAttribute(pathPositions, 3));
+    pathGeom.setAttribute('color',    new THREE.BufferAttribute(pathColors, 3));
+    const pathMat = new THREE.LineBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 0.95, linewidth: 2
+    });
+    const pathLine = new THREE.Line(pathGeom, pathMat);
+    pathLine.frustumCulled = false;
+    pathGeom.setDrawRange(0, 1);
+    torusGroup.add(pathLine);
+
+    // The leading "now" point — a small glowing sphere
+    const headGeo = new THREE.SphereGeometry(0.13, 18, 14);
+    const headMat = new THREE.MeshBasicMaterial({ color: 0xffe080 });
+    const headMesh = new THREE.Mesh(headGeo, headMat);
+    torusGroup.add(headMesh);
+    // A soft halo around the head
+    const haloGeo = new THREE.SphereGeometry(0.28, 18, 14);
+    const haloMat = new THREE.MeshBasicMaterial({
+        color: 0xffaa44, transparent: true, opacity: 0.35
+    });
+    const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+    torusGroup.add(haloMesh);
+
+    // ===========================================================
+    // Simulation state
+    // ===========================================================
+    let currentDay = 0;          // continuous, can be fractional during animation
+    let playing = false;
+    let speed = 20;              // days per real-time second (slider value)
+    let showFullPath = false;
+    let longCountSpinEnabled = false;
+    let longCountAngle = 0;
+
+    function updateHead() {
+        const d = currentDay;
+        const u = ((d % TZOLKIN_DAYS) + TZOLKIN_DAYS) % TZOLKIN_DAYS / TZOLKIN_DAYS * Math.PI * 2;
+        const v = ((d % HAAB_DAYS)    + HAAB_DAYS)    % HAAB_DAYS    / HAAB_DAYS    * Math.PI * 2;
+        const p = torusPoint(u, v, 0.07);
+        headMesh.position.copy(p);
+        haloMesh.position.copy(p);
+    }
+
+    function updatePath() {
+        if (showFullPath) {
+            pathGeom.setDrawRange(0, CALENDAR_ROUND + 1);
+            return;
+        }
+        const idx = Math.max(1, Math.min(CALENDAR_ROUND + 1, Math.floor(currentDay) + 1));
+        pathGeom.setDrawRange(0, idx);
+    }
+
+    function updateReadout() {
+        const dInt = Math.floor(currentDay);
+        const dCR  = ((dInt % CALENDAR_ROUND) + CALENDAR_ROUND) % CALENDAR_ROUND;
+        const tz = tzolkinFor(dInt);
+        const hb = haabFor(dInt);
+        document.getElementById('tzolkinText').textContent = tz.label;
+        document.getElementById('haabText').textContent    = hb.label;
+        document.getElementById('longCountText').textContent = longCountFor(dInt);
+        document.getElementById('gregText').textContent    = dayCountToGregorianText(dInt);
+        const pct = (dCR / CALENDAR_ROUND * 100).toFixed(2);
+        document.getElementById('progressText').textContent =
+            dCR.toLocaleString() + " / 18,980 days · " + pct + "%";
+        const yrs = (dInt / 365.2422);
+        const yrsTxt = yrs >= 0 ? yrs.toFixed(2) + " Gregorian years" : (-yrs).toFixed(2) + " years before creation";
+        document.getElementById('elapsedText').textContent = yrsTxt + " elapsed";
+    }
+
+    function setDay(d) {
+        currentDay = d;
+        updateHead();
+        updatePath();
+        updateReadout();
+    }
+
+    // ===========================================================
+    // UI wiring
+    // ===========================================================
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal    = document.getElementById('speedVal');
+
+    function speedFromSlider(v) {
+        // Logarithmic mapping. v in [-30..100].
+        // v=-30 → ~0.1 d/s, v=0 → 1 d/s, v=20 → ~6 d/s,
+        // v=60 → ~365 d/s (~1 yr/s), v=100 → ~10000 d/s.
+        return Math.pow(10, v / 30);
+    }
+    function formatSpeed(daysPerSec) {
+        if (daysPerSec >= 365) return (daysPerSec / 365).toFixed(1) + " yr/s";
+        if (daysPerSec >= 1)   return daysPerSec.toFixed(1) + " d/s";
+        return (1 / daysPerSec).toFixed(1) + " s/d";
+    }
+    speedSlider.addEventListener('input', () => {
+        speed = speedFromSlider(parseFloat(speedSlider.value));
+        speedVal.textContent = formatSpeed(speed);
+    });
+    speed = speedFromSlider(parseFloat(speedSlider.value));
+    speedVal.textContent = formatSpeed(speed);
+
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    playPauseBtn.addEventListener('click', () => {
+        playing = !playing;
+        playPauseBtn.textContent = playing ? "❚❚ Pause" : "▶ Play";
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        setDay(0);
+    });
+
+    document.getElementById('todayBtn').addEventListener('click', () => {
+        const now = new Date();
+        const jdn = gregorianToJDN(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        setDay(jdn - GMT_CORRELATION);
+    });
+
+    document.getElementById('jumpBtn').addEventListener('click', () => {
+        const v = document.getElementById('dateInput').value;
+        if (!v) return;
+        const parts = v.split('-').map(Number);
+        const jdn = gregorianToJDN(parts[0], parts[1], parts[2]);
+        setDay(jdn - GMT_CORRELATION);
+    });
+
+    document.getElementById('showFullPath').addEventListener('change', (e) => {
+        showFullPath = e.target.checked;
+        updatePath();
+    });
+    document.getElementById('showGrid').addEventListener('change', (e) => {
+        gridGroup.visible = e.target.checked;
+    });
+    document.getElementById('showYearStarts').addEventListener('change', (e) => {
+        yearStartGroup.visible = e.target.checked;
+    });
+    document.getElementById('longCountSpin').addEventListener('change', (e) => {
+        longCountSpinEnabled = e.target.checked;
+    });
+
+    // Start at today's date so the visualization opens at a meaningful moment.
+    (function initToToday() {
+        const now = new Date();
+        const jdn = gregorianToJDN(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        setDay(jdn - GMT_CORRELATION);
+    })();
+
+    // ===========================================================
+    // Animation loop
+    // ===========================================================
+    let lastT = performance.now();
+    function animate(now) {
+        const dt = Math.min(0.1, (now - lastT) / 1000);
+        lastT = now;
+
+        if (playing) {
+            currentDay += speed * dt;
+            updateHead();
+            updatePath();
+            updateReadout();
+        }
+
+        if (longCountSpinEnabled) {
+            // The Long Count nests cycles within cycles. We let the whole torus
+            // precess slowly — a visible echo of the baktun rotation that, in
+            // proper proportion, would take ~5,125 years to complete.
+            longCountAngle += 0.0008;
+            torusGroup.rotation.y = longCountAngle;
+            torusGroup.rotation.x = 0.15 * Math.sin(longCountAngle * 0.3);
+        }
+
+        // Camera
+        camera.position.set(
+            lookAt.x + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta),
+            lookAt.y + spherical.radius * Math.cos(spherical.phi),
+            lookAt.z + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta)
+        );
+        camera.lookAt(lookAt);
+
+        // Subtle pulse on head halo
+        const pulse = 1 + 0.18 * Math.sin(now * 0.004);
+        haloMesh.scale.setScalar(pulse);
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    </script>
+</body>
+</html>
