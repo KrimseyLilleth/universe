@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain as Toroidal Flow</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; }
+        body {
+            background: radial-gradient(ellipse at center, #1a0a2a 0%, #050010 60%, #000 100%);
+            font-family: Georgia, "Times New Roman", serif;
+            color: #fff;
+            user-select: none;
+        }
+        #container { position: absolute; inset: 0; }
+
+        #info {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0,0,0,0.72);
+            padding: 14px 18px;
+            border-radius: 8px;
+            max-width: 320px;
+            border: 1px solid #333;
+            backdrop-filter: blur(6px);
+            pointer-events: none;
+        }
+        #info h1 {
+            font-size: 17px;
+            margin-bottom: 6px;
+            font-style: italic;
+            color: #ffd166;
+            letter-spacing: 0.5px;
+        }
+        #info p {
+            font-size: 11px;
+            line-height: 1.55;
+            color: #bbb;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(0,0,0,0.78);
+            padding: 14px 16px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            backdrop-filter: blur(6px);
+            width: 290px;
+            font-size: 11px;
+        }
+        #controls .section { color: #ffd166; font-style: italic; margin-bottom: 6px; }
+        .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+        .row label { width: 60px; font-weight: bold; font-size: 10.5px; }
+        .row .hz { width: 56px; color: #888; font-size: 10px; text-align: right; }
+        .row input[type=range] { flex: 1; accent-color: #ffd166; }
+        .delta { color: #ff5544; }
+        .theta { color: #ff8833; }
+        .alpha { color: #ffdd33; }
+        .beta  { color: #44dd66; }
+        .gamma { color: #4488ff; }
+
+        button {
+            background: #1a1a1a;
+            color: #ddd;
+            border: 1px solid #444;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-family: Georgia, serif;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 4px;
+            margin-top: 8px;
+            transition: all 0.15s;
+        }
+        button:hover { background: #2a2a2a; border-color: #777; color: #fff; }
+        button.active { background: #422a0a; border-color: #ffd166; color: #ffd166; }
+
+        #legend {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(0,0,0,0.72);
+            padding: 12px 14px;
+            border-radius: 8px;
+            max-width: 290px;
+            font-size: 10.5px;
+            line-height: 1.55;
+            color: #aaa;
+            border: 1px solid #333;
+            backdrop-filter: blur(6px);
+        }
+        #legend strong { color: #ffd166; font-style: italic; }
+        #legend p { margin-bottom: 6px; }
+        #legend .last { color: #888; font-style: italic; margin-top: 8px; }
+
+        #hint {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 10px;
+            color: #888;
+            font-style: italic;
+        }
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffd166;
+            font-size: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s;
+            text-shadow: 0 0 12px #ff8833;
+        }
+        #status.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <div id="info">
+        <h1>Brain as Toroidal Flow</h1>
+        <p>A nested toroidal flow system. Memories are standing wave patterns held stable by continuous regeneration of light-speed-equivalent flow &mdash; the same mechanism that makes a proton, at a different scale.</p>
+    </div>
+
+    <div id="legend">
+        <p><strong>Flow at substrate-c</strong> &mdash; light-speed-equivalent in the inner medium.</p>
+        <p><strong>Knot</strong> = memory pattern, held stable by continuous regeneration.</p>
+        <p><strong>Coupling depth</strong> = persistence (analog of rest mass / inverse Compton wavelength).</p>
+        <p><strong>Phi-ratio frequencies</strong> let nested loops coexist without destructive interference (Pletzer, Klimesch).</p>
+        <p class="last">Click any knot to perturb it.</p>
+    </div>
+
+    <div id="controls">
+        <div class="section">Frequency emphasis</div>
+        <div class="row"><label class="delta">Delta</label><input type="range" id="emphDelta" min="0" max="2" step="0.01" value="1"><span class="hz" id="hzDelta">2 Hz</span></div>
+        <div class="row"><label class="theta">Theta</label><input type="range" id="emphTheta" min="0" max="2" step="0.01" value="1"><span class="hz" id="hzTheta">6 Hz</span></div>
+        <div class="row"><label class="alpha">Alpha</label><input type="range" id="emphAlpha" min="0" max="2" step="0.01" value="1"><span class="hz" id="hzAlpha">10 Hz</span></div>
+        <div class="row"><label class="beta">Beta</label><input type="range" id="emphBeta" min="0" max="2" step="0.01" value="1"><span class="hz" id="hzBeta">20 Hz</span></div>
+        <div class="row"><label class="gamma">Gamma</label><input type="range" id="emphGamma" min="0" max="2" step="0.01" value="1"><span class="hz" id="hzGamma">40 Hz</span></div>
+        <div>
+            <button id="phiToggle" class="active">phi-ratio: ON</button>
+            <button id="viewToggle">view: outside</button>
+        </div>
+    </div>
+
+    <div id="hint">drag to orbit &middot; scroll to zoom &middot; click knot to perturb</div>
+    <div id="status"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    // ============================================================
+    //  Brain-as-Toroidal-Flow Visualization
+    //  Theoretical comments throughout map the visual to the physics.
+    // ============================================================
+
+    const PHI = 1.6180339887498949;
+
+    // Torus geometry: R/r = phi.
+    // The ratio matters: phi-geometry is what allows a closed loop of flow
+    // to nest with itself without destructive self-interference.
+    // PROTON PARALLEL: a proton is light-speed substrate flow folded into a
+    // closed phi-geometry knot. A memory is brain-substrate flow folded
+    // into nested phi-frequency standing waves. Same mechanism, different scale.
+    const r_minor = 5.0;
+    const R_major = r_minor * PHI;   // ~8.09
+
+    // ---------- Renderer / scene ----------
+    const container = document.getElementById('container');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+        55, window.innerWidth / window.innerHeight, 0.05, 2000
+    );
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+    container.appendChild(renderer.domElement);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ---------- Soft circular sprite for particles ----------
+    function makeCircleTexture() {
+        const size = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        g.addColorStop(0.0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+        g.addColorStop(1.0, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, size, size);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearFilter;
+        return tex;
+    }
+    const sprite = makeCircleTexture();
+
+    // ---------- Cosmic background (starfield + faint nebula) ----------
+    {
+        // The dark cosmic background suggests that inner space and outer space
+        // are continuous: the substrate that flows in the brain-torus is the
+        // same substrate that flows everywhere else.
+        const N = 4500;
+        const geom = new THREE.BufferGeometry();
+        const pos = new Float32Array(N * 3);
+        const col = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const rad = 250 + Math.random() * 350;
+            pos[i*3]   = rad * Math.sin(phi) * Math.cos(theta);
+            pos[i*3+1] = rad * Math.cos(phi);
+            pos[i*3+2] = rad * Math.sin(phi) * Math.sin(theta);
+            const c = 0.4 + Math.random() * 0.6;
+            const tint = Math.random();
+            col[i*3]   = c * (0.55 + 0.45 * tint);
+            col[i*3+1] = c * (0.55 + 0.2 * Math.random());
+            col[i*3+2] = c * (0.7 + 0.3 * (1 - tint));
+        }
+        geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        const mat = new THREE.PointsMaterial({
+            size: 1.4,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.85,
+            depthWrite: false,
+            map: sprite,
+            blending: THREE.AdditiveBlending,
+        });
+        scene.add(new THREE.Points(geom, mat));
+    }
+
+    // Faint nebula plumes — large, soft, slow drift
+    {
+        const N = 250;
+        const geom = new THREE.BufferGeometry();
+        const pos = new Float32Array(N * 3);
+        const col = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+            const t = Math.random() * Math.PI * 2;
+            const p = Math.acos(2 * Math.random() - 1);
+            const rad = 80 + Math.random() * 200;
+            pos[i*3]   = rad * Math.sin(p) * Math.cos(t);
+            pos[i*3+1] = rad * Math.cos(p) * 0.5;
+            pos[i*3+2] = rad * Math.sin(p) * Math.sin(t);
+            const hue = 0.55 + Math.random() * 0.25;
+            const c = new THREE.Color().setHSL(hue, 0.7, 0.18);
+            col[i*3]   = c.r;
+            col[i*3+1] = c.g;
+            col[i*3+2] = c.b;
+        }
+        geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        const mat = new THREE.PointsMaterial({
+            size: 60,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.18,
+            depthWrite: false,
+            map: sprite,
+            blending: THREE.AdditiveBlending,
+        });
+        scene.add(new THREE.Points(geom, mat));
+    }
+
+    // ---------- Translucent torus shell (no hard surface) ----------
+    // Plasma-like layered translucency: the torus is a *region of flow*,
+    // not a solid object. We render a shader that gives it a soft, fluid feel.
+    const torusShell = (() => {
+        const geom = new THREE.TorusGeometry(R_major, r_minor, 96, 200);
+        const mat = new THREE.ShaderMaterial({
+            transparent: true,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            uniforms: { time: { value: 0 } },
+            vertexShader: `
+                varying vec3 vNormal;
+                varying vec3 vWorld;
+                varying vec3 vView;
+                void main() {
+                    vec4 wp = modelMatrix * vec4(position, 1.0);
+                    vec4 vp = viewMatrix * wp;
+                    vNormal = normalize(normalMatrix * normal);
+                    vWorld = wp.xyz;
+                    vView = -vp.xyz;
+                    gl_Position = projectionMatrix * vp;
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                varying vec3 vNormal;
+                varying vec3 vWorld;
+                varying vec3 vView;
+                void main() {
+                    vec3 V = normalize(vView);
+                    float fres = pow(1.0 - abs(dot(normalize(vNormal), V)), 2.5);
+                    float wave = 0.5 + 0.5 * sin(vWorld.x * 0.4 + vWorld.z * 0.3 + time * 0.6);
+                    float wave2 = 0.5 + 0.5 * sin(vWorld.y * 0.6 + time * 0.9);
+                    vec3 col = mix(vec3(0.18, 0.05, 0.4), vec3(0.55, 0.25, 0.85), wave);
+                    col = mix(col, vec3(0.2, 0.55, 0.95), wave2 * 0.4);
+                    gl_FragColor = vec4(col * (0.4 + 0.8 * fres), fres * 0.22);
+                }
+            `,
+        });
+        return new THREE.Mesh(geom, mat);
+    })();
+    scene.add(torusShell);
+
+    // ---------- Frequency bands ----------
+    // Real EEG frequency relationships are approximately phi-ratio'd in
+    // healthy resting cortex (Pletzer, Klimesch et al.). Phi-spacing
+    // minimizes destructive interference: nested loops at frequencies
+    // related by an irrational ratio never settle into a periodic resonance
+    // that would lock or cancel them. This is the same reason proton-scale
+    // knots are stable: the involved loop ratios are phi-related.
+    const BANDS = [
+        { name: 'delta', label: 'Delta', baseFreq: 2,  color: new THREE.Color(0xff5544) },
+        { name: 'theta', label: 'Theta', baseFreq: 6,  color: new THREE.Color(0xff8833) },
+        { name: 'alpha', label: 'Alpha', baseFreq: 10, color: new THREE.Color(0xffdd33) },
+        { name: 'beta',  label: 'Beta',  baseFreq: 20, color: new THREE.Color(0x44dd66) },
+        { name: 'gamma', label: 'Gamma', baseFreq: 40, color: new THREE.Color(0x4488ff) },
+    ];
+
+    // Two parameter sets:
+    //   PHI: tor[i] = base * phi^i, pol[i] = base * phi^i  (irrational ratios)
+    //   ARB: rational, near-harmonic (causes destructive interference)
+    function applySpacing(usePhi) {
+        if (usePhi) {
+            BANDS.forEach((b, i) => {
+                b.tor = 0.16 * Math.pow(PHI, i);
+                b.pol = 0.07 * Math.pow(PHI, i);
+                b.pulse = 0.55 * Math.pow(PHI, i);
+            });
+        } else {
+            // Integer-ratio (1, 2, 3, 4, 5) — produces beat patterns
+            // and locked phases that destructively interfere.
+            const t = [0.16, 0.32, 0.48, 0.64, 0.80];
+            const p = [0.07, 0.14, 0.21, 0.28, 0.35];
+            const u = [0.55, 1.10, 1.65, 2.20, 2.75];
+            BANDS.forEach((b, i) => { b.tor = t[i]; b.pol = p[i]; b.pulse = u[i]; });
+        }
+    }
+    applySpacing(true);
+
+    // ---------- Torus parametric helper ----------
+    function torusXYZ(u, v, R, r, dr, out) {
+        const rad = r + (dr || 0);
+        const cu = Math.cos(u), su = Math.sin(u);
+        const cv = Math.cos(v), sv = Math.sin(v);
+        out.x = (R + rad * cv) * cu;
+        out.y = rad * sv;
+        out.z = (R + rad * cv) * su;
+        return out;
+    }
+    const _tmp = { x: 0, y: 0, z: 0 };
+
+    // ---------- Flow particle systems (one per band) ----------
+    // The high apparent speed represents the substrate-c flow that gets folded
+    // into stable patterns. Slow bands look like deep currents; fast bands
+    // like surface ripples. Combined motion (toroidal + poloidal) traces
+    // helical paths on the torus surface — the geometric fingerprint of
+    // a closed light-speed loop.
+    const PARTICLES_PER_BAND = 1700;
+    const flow = BANDS.map((band, idx) => {
+        const N = PARTICLES_PER_BAND;
+        const u0 = new Float32Array(N);
+        const v0 = new Float32Array(N);
+        const phase = new Float32Array(N);
+        const positions = new Float32Array(N * 3);
+        const colors = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+            u0[i] = Math.random() * Math.PI * 2;
+            v0[i] = Math.random() * Math.PI * 2;
+            phase[i] = Math.random() * Math.PI * 2;
+        }
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const mat = new THREE.PointsMaterial({
+            size: 0.20 - idx * 0.018,   // slow bands = larger, deeper currents
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.85,
+            depthWrite: false,
+            map: sprite,
+            blending: THREE.AdditiveBlending,
+        });
+        const points = new THREE.Points(geom, mat);
+        scene.add(points);
+        return { band, idx, points, geom, u0, v0, phase, positions, colors };
+    });
+
+    // ---------- Knots (memories) ----------
+    // A knot is a region where multi-frequency flow has organized into a
+    // standing wave that holds shape across many flow cycles.
+    //   COUPLING DEPTH (1..5)
+    //     1 = couples only to gamma (transient working-memory)
+    //     2 = beta + gamma
+    //     3 = alpha + beta + gamma
+    //     4 = theta + alpha + beta + gamma
+    //     5 = full delta..gamma stack (deep core memory, near-permanent)
+    //
+    //   COMPTON-WAVELENGTH ANALOG: a memory's "mass" (persistence) is
+    //   inversely related to its characteristic frequency. Coupling all
+    //   the way down to delta (~2 Hz) gives a long inertia: more "weight"
+    //   in the inner universe. Cross-frequency coupling (especially
+    //   theta-gamma) is the empirically-supported binding mechanism for
+    //   working memory in real neuroscience.
+    const knotDefs = [
+        { uc: 0.40 * Math.PI * 2, vc: 0.18 * Math.PI * 2, depth: 5 },
+        { uc: 0.72 * Math.PI * 2, vc: 0.62 * Math.PI * 2, depth: 4 },
+        { uc: 0.10 * Math.PI * 2, vc: 0.85 * Math.PI * 2, depth: 3 },
+        { uc: 0.55 * Math.PI * 2, vc: 0.38 * Math.PI * 2, depth: 2 },
+        { uc: 0.86 * Math.PI * 2, vc: 0.10 * Math.PI * 2, depth: 1 },
+        { uc: 0.25 * Math.PI * 2, vc: 0.55 * Math.PI * 2, depth: 4 },
+        { uc: 0.62 * Math.PI * 2, vc: 0.92 * Math.PI * 2, depth: 2 },
+    ];
+
+    // Precompute knot proxy (invisible sphere) for raycasting.
+    const knotProxies = [];
+    const raycaster = new THREE.Raycaster();
+    const mouseV = new THREE.Vector2();
+
+    const knots = knotDefs.map((def, ki) => {
+        const N = 280;
+        const positions = new Float32Array(N * 3);
+        const colors = new Float32Array(N * 3);
+        const du = new Float32Array(N);
+        const dv = new Float32Array(N);
+        const radial = new Float32Array(N);     // small outward bulge
+        const bandIdx = new Int32Array(N);
+        const phase = new Float32Array(N);
+        const scatterDir = new Float32Array(N * 3);  // disordered direction
+
+        // Bands the knot couples to: depth d => bands [5-d ... 4]
+        const coupled = [];
+        for (let i = 5 - def.depth; i <= 4; i++) coupled.push(i);
+
+        for (let i = 0; i < N; i++) {
+            bandIdx[i] = coupled[Math.floor(Math.random() * coupled.length)];
+            phase[i] = Math.random() * Math.PI * 2;
+            // Standing-wave lattice: sample a 2D Gaussian-ish puff in (du, dv)
+            const a = Math.random() * Math.PI * 2;
+            const rho = Math.pow(Math.random(), 0.6) * 0.55;
+            du[i] = Math.cos(a) * rho;
+            dv[i] = Math.sin(a) * rho;
+            radial[i] = (Math.random() * 0.4 - 0.05);
+            // Scatter direction (used when perturbed)
+            const t = Math.random() * Math.PI * 2;
+            const p = Math.acos(2 * Math.random() - 1);
+            scatterDir[i*3]   = Math.sin(p) * Math.cos(t);
+            scatterDir[i*3+1] = Math.cos(p);
+            scatterDir[i*3+2] = Math.sin(p) * Math.sin(t);
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const baseSize = 0.22 + 0.08 * def.depth;
+        const mat = new THREE.PointsMaterial({
+            size: baseSize,
+            vertexColors: true,
+            transparent: true,
+            opacity: 1.0,
+            depthWrite: false,
+            map: sprite,
+            blending: THREE.AdditiveBlending,
+        });
+        const points = new THREE.Points(geom, mat);
+        scene.add(points);
+
+        const center = torusXYZ(def.uc, def.vc, R_major, r_minor, 0, { x:0, y:0, z:0 });
+        const centerVec = new THREE.Vector3(center.x, center.y, center.z);
+
+        // Invisible proxy sphere used purely for click-to-perturb raycasting.
+        const proxyR = 0.8 + 0.25 * def.depth;
+        const proxy = new THREE.Mesh(
+            new THREE.SphereGeometry(proxyR, 16, 16),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        proxy.position.copy(centerVec);
+        proxy.userData.knotIndex = ki;
+        scene.add(proxy);
+        knotProxies.push(proxy);
+
+        return {
+            def, points, geom, mat, baseSize,
+            du, dv, radial, bandIdx, phase, scatterDir,
+            positions, colors,
+            coherence: 1.0,
+            flashUntil: 0,
+            center: centerVec,
+        };
+    });
+
+    // ---------- UI state ----------
+    const emphasis = [1, 1, 1, 1, 1];
+    let usePhi = true;
+    let viewInside = false;
+
+    function showStatus(text, ms) {
+        const el = document.getElementById('status');
+        el.textContent = text;
+        el.classList.add('show');
+        clearTimeout(showStatus._t);
+        showStatus._t = setTimeout(() => el.classList.remove('show'), ms || 1400);
+    }
+
+    // Sliders
+    const ids = ['emphDelta','emphTheta','emphAlpha','emphBeta','emphGamma'];
+    ids.forEach((id, i) => {
+        document.getElementById(id).addEventListener('input', e => {
+            emphasis[i] = parseFloat(e.target.value);
+        });
+    });
+
+    function updateHzLabels() {
+        // Display the *visible* base frequency for each band
+        const labels = ['hzDelta','hzTheta','hzAlpha','hzBeta','hzGamma'];
+        if (usePhi) {
+            const baseHz = 2;
+            for (let i = 0; i < 5; i++) {
+                const f = baseHz * Math.pow(PHI, i);
+                document.getElementById(labels[i]).textContent = f.toFixed(1) + ' Hz';
+            }
+        } else {
+            const arb = [2, 4, 6, 8, 10];
+            for (let i = 0; i < 5; i++) {
+                document.getElementById(labels[i]).textContent = arb[i] + ' Hz';
+            }
+        }
+    }
+    updateHzLabels();
+
+    // Phi toggle
+    document.getElementById('phiToggle').addEventListener('click', e => {
+        usePhi = !usePhi;
+        applySpacing(usePhi);
+        updateHzLabels();
+        e.target.textContent = 'phi-ratio: ' + (usePhi ? 'ON' : 'OFF');
+        e.target.classList.toggle('active', usePhi);
+        showStatus(usePhi
+            ? 'Phi-ratio frequencies — nested loops coexist'
+            : 'Integer-ratio frequencies — destructive interference');
+    });
+
+    // View toggle
+    document.getElementById('viewToggle').addEventListener('click', e => {
+        viewInside = !viewInside;
+        e.target.textContent = 'view: ' + (viewInside ? 'inside' : 'outside');
+        e.target.classList.toggle('active', viewInside);
+        if (viewInside) {
+            camDist = 0.05;     // sit at the donut hole
+            camPhi = Math.PI / 2;
+            showStatus('Inside the torus — inner space and outer space are continuous');
+        } else {
+            camDist = 32;
+            showStatus('Outside view');
+        }
+    });
+
+    // ---------- Camera (basic orbit) ----------
+    let camTheta = 0.7;
+    let camPhi = 1.1;
+    let camDist = 32;
+
+    let dragging = false;
+    let dragStart = null;
+    let dragMoved = false;
+    let lastX = 0, lastY = 0;
+
+    renderer.domElement.addEventListener('mousedown', e => {
+        dragging = true;
+        dragStart = { x: e.clientX, y: e.clientY };
+        dragMoved = false;
+        lastX = e.clientX; lastY = e.clientY;
+    });
+    window.addEventListener('mouseup', e => {
+        if (dragging && !dragMoved) handleClick(e);
+        dragging = false;
+    });
+    window.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        if (Math.abs(e.clientX - dragStart.x) + Math.abs(e.clientY - dragStart.y) > 4) dragMoved = true;
+        camTheta -= dx * 0.005;
+        camPhi -= dy * 0.005;
+        camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi));
+    });
+    renderer.domElement.addEventListener('wheel', e => {
+        e.preventDefault();
+        if (viewInside) {
+            // Inside view: scrolling moves you toward / out of the torus tube
+            camDist *= (1 + e.deltaY * 0.001);
+            camDist = Math.max(0.02, Math.min(R_major - r_minor * 0.4, camDist));
+        } else {
+            camDist *= (1 + e.deltaY * 0.001);
+            camDist = Math.max(2.5, Math.min(120, camDist));
+        }
+    }, { passive: false });
+
+    // Touch support — single-finger orbit, pinch zoom
+    let touchStartDist = 0, touchStartCamDist = 0;
+    let touchTapStart = null, touchTapMoved = false;
+    renderer.domElement.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+            dragging = true;
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+            touchTapStart = { x: lastX, y: lastY };
+            touchTapMoved = false;
+        } else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            touchStartDist = Math.hypot(dx, dy);
+            touchStartCamDist = camDist;
+            dragging = false;
+        }
+    }, { passive: true });
+    renderer.domElement.addEventListener('touchmove', e => {
+        if (e.touches.length === 1 && dragging) {
+            const x = e.touches[0].clientX, y = e.touches[0].clientY;
+            const dx = x - lastX, dy = y - lastY;
+            lastX = x; lastY = y;
+            if (touchTapStart && Math.hypot(x - touchTapStart.x, y - touchTapStart.y) > 6) touchTapMoved = true;
+            camTheta -= dx * 0.005;
+            camPhi -= dy * 0.005;
+            camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi));
+        } else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const d = Math.hypot(dx, dy);
+            const factor = touchStartDist / Math.max(1, d);
+            camDist = touchStartCamDist * factor;
+            camDist = Math.max(2.5, Math.min(120, camDist));
+        }
+    }, { passive: true });
+    renderer.domElement.addEventListener('touchend', e => {
+        if (dragging && !touchTapMoved && touchTapStart) {
+            handleClick({ clientX: touchTapStart.x, clientY: touchTapStart.y });
+        }
+        dragging = false;
+        touchTapStart = null;
+    });
+
+    function updateCamera() {
+        if (viewInside) {
+            // Camera sits on the central circle of the tube, looking tangentially.
+            // From inside the donut hole / inside the tube, the surrounding
+            // flow looks like a sky of layered currents — emphasizing that
+            // inner space and outer space are the same continuous medium.
+            const t = camTheta;
+            const tubeOffset = camDist;
+            // position: small drift along central axis
+            camera.position.set(
+                R_major * Math.cos(t),
+                Math.cos(camPhi) * 1.5,
+                R_major * Math.sin(t)
+            );
+            // look along tangent in direction of camPhi (up/down tilt)
+            camera.lookAt(
+                R_major * Math.cos(t) - Math.sin(t) * 5,
+                Math.cos(camPhi) * 5,
+                R_major * Math.sin(t) + Math.cos(t) * 5
+            );
+        } else {
+            const r = camDist;
+            camera.position.set(
+                r * Math.sin(camPhi) * Math.cos(camTheta),
+                r * Math.cos(camPhi),
+                r * Math.sin(camPhi) * Math.sin(camTheta)
+            );
+            camera.lookAt(0, 0, 0);
+        }
+    }
+
+    function handleClick(e) {
+        mouseV.x =  (e.clientX / window.innerWidth) * 2 - 1;
+        mouseV.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouseV, camera);
+        const hits = raycaster.intersectObjects(knotProxies, false);
+        if (hits.length) {
+            const idx = hits[0].object.userData.knotIndex;
+            perturbKnot(knots[idx]);
+        }
+    }
+
+    function perturbKnot(k) {
+        // Deeper coupling = harder to perturb. A single click on a depth-5
+        // memory only knocks coherence down a little; a depth-1 knot shatters.
+        const drop = Math.max(0.35, 1.4 - k.def.depth * 0.18);
+        k.coherence = Math.max(0, k.coherence - drop);
+        k.flashUntil = time + 0.45;
+    }
+
+    // ---------- Animation loop ----------
+    let time = 0;
+    let lastT = performance.now() * 0.001;
+
+    function animate() {
+        const now = performance.now() * 0.001;
+        let dt = now - lastT;
+        if (dt > 0.1) dt = 0.1;     // clamp during tab-switch
+        lastT = now;
+        time += dt;
+
+        // --- Flow particles ---
+        for (const fp of flow) {
+            const { band, idx, u0, v0, phase, positions, colors } = fp;
+            const emp = emphasis[idx];
+            const tor = band.tor;
+            const pol = band.pol;
+            const pulse = band.pulse;
+            const c = band.color;
+            const bandJitter = usePhi ? 0 : 0.04;  // chaos when off
+
+            for (let i = 0; i < u0.length; i++) {
+                let u = u0[i] + tor * time;
+                let v = v0[i] + pol * time;
+                // Slow radial wobble: standing-wave breathing of the tube
+                const wob = 0.20 * Math.sin(pulse * time + phase[i]);
+                // When phi is OFF, particles drift incoherently
+                if (bandJitter) {
+                    u += bandJitter * Math.sin(time * 1.7 + phase[i] * 3.1);
+                    v += bandJitter * Math.cos(time * 2.3 + phase[i] * 2.4);
+                }
+                torusXYZ(u, v, R_major, r_minor, wob, _tmp);
+                positions[i*3]   = _tmp.x;
+                positions[i*3+1] = _tmp.y;
+                positions[i*3+2] = _tmp.z;
+                // Brightness pulses at the band's characteristic frequency
+                const b = 0.55 + 0.45 * Math.sin(pulse * time + phase[i]);
+                const a = emp * b;
+                colors[i*3]   = c.r * a;
+                colors[i*3+1] = c.g * a;
+                colors[i*3+2] = c.b * a;
+            }
+            fp.geom.attributes.position.needsUpdate = true;
+            fp.geom.attributes.color.needsUpdate = true;
+            fp.points.material.opacity = 0.55 + 0.35 * Math.min(emp, 1);
+        }
+
+        // --- Knots ---
+        for (const k of knots) {
+            // PHI-OFF: knots dissolve regardless of depth.
+            // Integer-ratio frequencies create destructive interference
+            // that prevents standing-wave reinforcement. The knot's
+            // pattern is no longer regenerated by surrounding flow.
+            if (!usePhi) {
+                k.coherence -= dt * 0.55;
+                if (k.coherence < 0) k.coherence = 0;
+            } else {
+                // Recovery rate scales steeply with coupling depth.
+                // d=1 (gamma only): essentially never fully recovers
+                //                    — shallow memories evaporate.
+                // d=5 (delta-coupled): rapidly reconstitutes from
+                //                      surrounding flow (regeneration).
+                const depthRate = 0.012 * Math.pow(k.def.depth, 2.4);
+                // Reinforcement also depends on how much emphasis user
+                // gives to the knot's coupled bands.
+                let coupledEmp = 0;
+                let coupledN = 0;
+                for (let i = 5 - k.def.depth; i <= 4; i++) {
+                    coupledEmp += emphasis[i];
+                    coupledN++;
+                }
+                const reinforcement = (coupledEmp / Math.max(1, coupledN));
+                if (k.coherence < 1.0) {
+                    k.coherence = Math.min(1.0, k.coherence + dt * depthRate * reinforcement);
+                }
+            }
+
+            // Compute average emphasis over coupled bands, for visibility.
+            let visEmp = 0; let visN = 0;
+            for (let i = 5 - k.def.depth; i <= 4; i++) { visEmp += emphasis[i]; visN++; }
+            visEmp = visEmp / Math.max(1, visN);
+
+            const flash = Math.max(0, k.flashUntil - time) / 0.45;
+            const phiMul = usePhi ? 1.0 : Math.max(0.15, k.coherence);
+
+            for (let i = 0; i < k.du.length; i++) {
+                const bi = k.bandIdx[i];
+                const band = BANDS[bi];
+                const emp = emphasis[bi];
+
+                // Standing-wave amplitude at this particle's lattice point.
+                // The pattern itself rocks at the local band frequency; the
+                // *average density* at this position is what makes the knot
+                // visible as a glowing cluster. Flow continues passing
+                // through, but the standing-wave envelope persists.
+                const swt = Math.cos(band.pulse * time + k.phase[i]);
+
+                // Ordered position on torus surface
+                const u = k.def.uc + k.du[i] * 0.7;
+                const v = k.def.vc + k.dv[i] * 0.7;
+                const wob = k.radial[i] * 0.5 + 0.06 * swt + 0.12;
+                torusXYZ(u, v, R_major, r_minor, wob, _tmp);
+
+                // Disordered scatter when coherence drops
+                const sf = (1 - k.coherence) * 1.8 + flash * 0.7;
+                const sx = k.scatterDir[i*3]   * sf;
+                const sy = k.scatterDir[i*3+1] * sf;
+                const sz = k.scatterDir[i*3+2] * sf;
+
+                k.positions[i*3]   = _tmp.x + sx;
+                k.positions[i*3+1] = _tmp.y + sy;
+                k.positions[i*3+2] = _tmp.z + sz;
+
+                // Brightness — knots are visibly brighter than ambient flow.
+                // The 1.7x multiplier is the visualization of "denser pattern".
+                const aBase = 0.55 + 0.45 * Math.abs(swt);
+                const a = emp * aBase * k.coherence * phiMul * (1.0 + flash * 1.2);
+                k.colors[i*3]   = band.color.r * a * 1.7;
+                k.colors[i*3+1] = band.color.g * a * 1.7;
+                k.colors[i*3+2] = band.color.b * a * 1.7;
+            }
+            k.geom.attributes.position.needsUpdate = true;
+            k.geom.attributes.color.needsUpdate = true;
+            // Deeper knots remain visually denser even at low overall emphasis
+            const baseOp = 0.85 * k.coherence * phiMul + 0.05;
+            k.mat.opacity = Math.min(1.0, baseOp + flash * 0.3);
+            // Knot grows slightly when flashed (perturbation visible)
+            k.mat.size = k.baseSize * (1.0 + flash * 0.4);
+        }
+
+        // --- Torus shader time ---
+        torusShell.material.uniforms.time.value = time;
+
+        updateCamera();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+
+    animate();
+    </script>
+</body>
+</html>
