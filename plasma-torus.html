@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plasma Torus — Interactive Explorer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; font-family: Georgia, serif; color: #fff; }
+        #container { width: 100vw; height: 100vh; cursor: grab; }
+        #container.clicking { cursor: pointer; }
+
+        #legend {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(5,5,16,0.94); padding: 18px 20px; border-radius: 10px;
+            border: 1px solid #333; max-width: 250px; font-size: 11px; line-height: 1.5;
+            max-height: calc(100vh - 40px); overflow-y: auto;
+        }
+        #legend h1 { font-size: 17px; margin-bottom: 4px; font-style: italic; }
+        #legend .sub { color: #666; font-size: 10px; margin-bottom: 14px; }
+        #legend .section {
+            color: #555; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
+            margin-top: 12px; border-top: 1px solid #222; padding-top: 8px;
+        }
+        .leg-item {
+            display: flex; align-items: center; padding: 3px 4px; margin: 1px 0;
+            border-radius: 4px; cursor: pointer; transition: background 0.2s;
+        }
+        .leg-item:hover { background: rgba(255,255,255,0.07); }
+        .leg-item.active { background: rgba(255,255,255,0.12); }
+        .swatch { width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; flex-shrink: 0; }
+        .leg-label { color: #aaa; font-size: 10px; }
+        .leg-item.active .leg-label { color: #fff; }
+
+        #detail {
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: rgba(5,5,16,0.95); padding: 0; border-radius: 12px;
+            border: 1px solid #444; max-width: 520px; width: 90vw;
+            pointer-events: auto; overflow: hidden;
+            transition: opacity 0.35s, transform 0.35s;
+            opacity: 0; transform: translateX(-50%) translateY(16px);
+        }
+        #detail.visible {
+            opacity: 1; transform: translateX(-50%) translateY(0);
+        }
+        #detail-header {
+            display: flex; align-items: center; padding: 14px 18px 10px;
+            border-bottom: 1px solid #333;
+        }
+        #detail-swatch { width: 14px; height: 14px; border-radius: 3px; margin-right: 12px; flex-shrink: 0; }
+        #detail-title { font-size: 15px; font-style: italic; flex: 1; }
+        #detail-close {
+            width: 24px; height: 24px; border: none; background: rgba(255,255,255,0.08);
+            color: #999; font-size: 16px; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; line-height: 1;
+        }
+        #detail-close:hover { background: rgba(255,255,255,0.18); color: #fff; }
+        #detail-body { padding: 14px 18px 18px; font-size: 12px; line-height: 1.7; color: #bbb; }
+        #detail-body strong { color: #fff; }
+        #detail-body .physics { color: #888; font-size: 11px; margin-top: 8px; border-top: 1px solid #222; padding-top: 8px; }
+
+        #hint {
+            position: absolute; bottom: 20px; left: 20px;
+            font-size: 10px; color: #444;
+            transition: opacity 0.5s;
+        }
+        #crosshair {
+            position: fixed; pointer-events: none; z-index: 100;
+            width: 14px; height: 14px; border: 1.5px solid rgba(255,255,255,0.5);
+            border-radius: 50%; display: none;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px rgba(100,200,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="crosshair"></div>
+
+    <div id="legend">
+        <h1>Plasma Torus</h1>
+        <div class="sub">Click any element to explore</div>
+
+        <div class="section">Confinement</div>
+        <div class="leg-item" data-id="boundary"><div class="swatch" style="background:#4ecdc4;"></div><div class="leg-label">Magnetic boundary (LCFS)</div></div>
+        <div class="leg-item" data-id="separatrix"><div class="swatch" style="background:#ff69b4;"></div><div class="leg-label">Separatrix</div></div>
+        <div class="leg-item" data-id="sol"><div class="swatch" style="background:#1a3050;"></div><div class="leg-label">Scrape-off layer</div></div>
+
+        <div class="section">Core structure</div>
+        <div class="leg-item" data-id="core"><div class="swatch" style="background:#00ff88;"></div><div class="leg-label">Plasma core</div></div>
+        <div class="leg-item" data-id="pedestal"><div class="swatch" style="background:#ffaa00;"></div><div class="leg-label">Pedestal (H-mode barrier)</div></div>
+        <div class="leg-item" data-id="flux"><div class="swatch" style="background:rgba(0,255,136,0.5);"></div><div class="leg-label">Nested flux surfaces</div></div>
+        <div class="leg-item" data-id="axis-dot"><div class="swatch" style="background:#ff4444;"></div><div class="leg-label">Magnetic axis</div></div>
+        <div class="leg-item" data-id="axis-ring"><div class="swatch" style="background:#ff8c00;"></div><div class="leg-label">Magnetic axis ring</div></div>
+        <div class="leg-item" data-id="mantle"><div class="swatch" style="background:#664422;"></div><div class="leg-label">Radiation mantle</div></div>
+
+        <div class="section">Instabilities</div>
+        <div class="leg-item" data-id="q1"><div class="swatch" style="background:#8866ff;"></div><div class="leg-label">q=1 sawtooth surface</div></div>
+        <div class="leg-item" data-id="q2"><div class="swatch" style="background:#6644cc;"></div><div class="leg-label">q=2 tearing mode surface</div></div>
+        <div class="leg-item" data-id="kink"><div class="swatch" style="background:#ff6b6b;"></div><div class="leg-label">Helical kink instability</div></div>
+        <div class="leg-item" data-id="elm"><div class="swatch" style="background:#ffdd44;"></div><div class="leg-label">ELM filament band</div></div>
+        <div class="leg-item" data-id="current"><div class="swatch" style="background:#44ddff;"></div><div class="leg-label">Current filament band</div></div>
+        <div class="leg-item" data-id="tearing"><div class="swatch" style="background:#ff88ff;"></div><div class="leg-label">Tearing mode band</div></div>
+
+        <div class="section">Exhaust & flow</div>
+        <div class="leg-item" data-id="xpoint"><div class="swatch" style="background:#ffffff;"></div><div class="leg-label">X-point (reconnection)</div></div>
+        <div class="leg-item" data-id="divertor"><div class="swatch" style="background:#ff6633;"></div><div class="leg-label">Divertor exhaust streams</div></div>
+        <div class="leg-item" data-id="spine"><div class="swatch" style="background:#cc4444;"></div><div class="leg-label">Toroidal current channel</div></div>
+    </div>
+
+    <div id="detail">
+        <div id="detail-header">
+            <div id="detail-swatch"></div>
+            <div id="detail-title"></div>
+            <button id="detail-close">&times;</button>
+        </div>
+        <div id="detail-body"></div>
+    </div>
+
+    <div id="hint">Click element or legend item &middot; Drag to rotate &middot; Scroll to zoom &middot; Right-drag to pan &middot; S to toggle UI</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    (function() {
+        // ===================== SCENE SETUP =====================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050510);
+        const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setPixelRatio(devicePixelRatio);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        const PHI = (1 + Math.sqrt(5)) / 2;
+        const PHI4 = Math.pow(PHI, 4);
+        const MAX_TIME_GYR = 13.787;
+        const R = 1;
+        const MAX_CROSS = R / (PHI * PHI);
+        const MIN_CROSS = MAX_CROSS / Math.pow(PHI, 8);
+
+        function getCrossRadius(t) {
+            const s = Math.sin(t / 2);
+            return MIN_CROSS + (MAX_CROSS - MIN_CROSS) * Math.pow(s, PHI * PHI);
+        }
+        function timeToTorusParam(timeGyr) {
+            const targetRatio = timeGyr / MAX_TIME_GYR;
+            let lo = 0, hi = Math.PI;
+            for (let i = 0; i < 50; i++) {
+                const mid = (lo + hi) / 2;
+                if ((getCrossRadius(mid) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS) > targetRatio) hi = mid;
+                else lo = mid;
+            }
+            return (lo + hi) / 2;
+        }
+
+        // ===================== CAMERA CONTROLS =====================
+        let isDragging = false, isPanning = false;
+        let spherical = { theta: -Math.PI / 2.3, phi: Math.PI / 2.1, radius: 3.0 };
+        let lookAt = new THREE.Vector3(0, 0, 0);
+        let lastMouse = { x: 0, y: 0 };
+        let mouseDownTime = 0;
+        let mouseDownPos = { x: 0, y: 0 };
+
+        const canvas = renderer.domElement;
+        canvas.addEventListener('mousedown', e => {
+            if (e.target.closest('#legend, #detail')) return;
+            mouseDownTime = Date.now();
+            mouseDownPos = { x: e.clientX, y: e.clientY };
+            if (e.button === 2 || e.shiftKey) isPanning = true;
+            else isDragging = true;
+            lastMouse = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mouseup', e => {
+            const dt = Date.now() - mouseDownTime;
+            const dx = Math.abs(e.clientX - mouseDownPos.x);
+            const dy = Math.abs(e.clientY - mouseDownPos.y);
+            if (dt < 300 && dx < 5 && dy < 5 && !isPanning) {
+                handleClick(e.clientX, e.clientY);
+            }
+            isDragging = false; isPanning = false;
+        });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        window.addEventListener('mousemove', e => {
+            const dx = e.clientX - lastMouse.x;
+            const dy = e.clientY - lastMouse.y;
+            if (isDragging) {
+                spherical.theta += dx * 0.005;
+                spherical.phi += dy * 0.005;
+                spherical.phi = Math.max(0.15, Math.min(Math.PI - 0.15, spherical.phi));
+            }
+            if (isPanning) {
+                const ps = spherical.radius * 0.001;
+                const right = new THREE.Vector3();
+                const up = new THREE.Vector3();
+                right.crossVectors(camera.up, new THREE.Vector3().subVectors(lookAt, camera.position)).normalize();
+                up.copy(camera.up);
+                lookAt.addScaledVector(right, dx * ps);
+                lookAt.addScaledVector(up, -dy * ps);
+            }
+            lastMouse = { x: e.clientX, y: e.clientY };
+            updateHover(e.clientX, e.clientY);
+        });
+        window.addEventListener('wheel', e => {
+            spherical.radius += e.deltaY * 0.002;
+            spherical.radius = Math.max(0.4, Math.min(7, spherical.radius));
+        });
+        window.addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+
+        // ===================== CLICKABLE REGISTRY =====================
+        const clickables = {};
+        function register(id, meshes) {
+            if (!Array.isArray(meshes)) meshes = [meshes];
+            clickables[id] = meshes;
+            meshes.forEach(m => { m.userData.elementId = id; });
+        }
+
+        // ===================== ELEMENT DATA =====================
+        const elementInfo = {
+            boundary: {
+                name: 'Magnetic Boundary (LCFS)',
+                color: '#4ecdc4',
+                desc: 'The <strong>Last Closed Flux Surface</strong> is the outermost magnetic surface where field lines close on themselves and complete full toroidal and poloidal circuits without hitting a wall.',
+                physics: 'Inside the LCFS, plasma is confined by nested magnetic flux surfaces. Outside it, field lines are "open" and strike material surfaces. The shape of this boundary determines the plasma\'s overall geometry: circular, elongated, or D-shaped. It is maintained by external poloidal field coils and the plasma\'s own toroidal current.'
+            },
+            separatrix: {
+                name: 'Separatrix',
+                color: '#ff69b4',
+                desc: 'The <strong>separatrix</strong> is the mathematical boundary between closed and open magnetic field topologies. It sits just inside the physical wall and defines where confinement ends.',
+                physics: 'The separatrix passes through one or more X-points where the poloidal magnetic field vanishes. Its exact shape controls the divertor geometry and determines how exhaust particles leave the confined region. The distance between the separatrix and the wall (the "SOL width") is typically only a few centimeters in a real tokamak.'
+            },
+            sol: {
+                name: 'Scrape-Off Layer (SOL)',
+                color: '#1a3050',
+                desc: 'The <strong>scrape-off layer</strong> is the thin region between the separatrix and the vessel wall. Plasma here is unconfined, flowing along open field lines toward the divertor plates.',
+                physics: 'SOL plasma is relatively cool (10-100 eV) and tenuous. It acts as a buffer zone, protecting the main wall from direct plasma contact. Cross-field transport (turbulent "blobs") occasionally ejects hot filaments across the SOL, causing intermittent heat loads on the wall. The SOL width is governed by the competition between parallel transport (fast, along field lines) and perpendicular transport (slow, across field lines).'
+            },
+            core: {
+                name: 'Plasma Core',
+                color: '#00ff88',
+                desc: 'The <strong>hot plasma core</strong> is the central region where temperatures reach 100-200 million degrees — ten times hotter than the center of the Sun. This is where fusion reactions occur.',
+                physics: 'The core plasma is fully ionized hydrogen isotopes (deuterium and tritium) confined by the magnetic field. Energy is generated by fusion reactions (D + T → He-4 + neutron) and transported outward by turbulence and radiation. The density profile is typically peaked, with the hottest, densest plasma at the magnetic axis. Core confinement quality is measured by the energy confinement time τ_E.'
+            },
+            pedestal: {
+                name: 'Pedestal (H-mode Edge Barrier)',
+                color: '#ffaa00',
+                desc: 'The <strong>pedestal</strong> is a narrow region of extremely steep pressure gradient just inside the separatrix. It forms spontaneously when heating power exceeds a threshold, creating "High confinement mode" (H-mode).',
+                physics: 'The pedestal is sustained by a strong sheared E×B flow that suppresses edge turbulence. Its height sets a "floor" for the core profiles — a taller pedestal means a hotter core. However, when the pressure gradient exceeds a critical value, it triggers Edge Localized Modes (ELMs) — violent bursts that expel energy. The pedestal width is typically 2-5% of the minor radius, yet it governs ~40% of the total stored energy.'
+            },
+            flux: {
+                name: 'Nested Poloidal Flux Surfaces',
+                color: 'rgba(0,255,136,0.6)',
+                desc: '<strong>Flux surfaces</strong> are concentric, nested toroidal shells traced out by magnetic field lines. Each surface is a constant-pressure contour — the most fundamental organizing structure of confined plasma.',
+                physics: 'In ideal MHD, plasma cannot cross flux surfaces — particles and energy stay on the surface they start on. In reality, collisions, turbulence, and magnetic perturbations cause slow cross-field transport. The surfaces are not perfectly concentric: the <strong>Shafranov shift</strong> pushes inner surfaces outward (away from the major axis) due to the plasma\'s own pressure and current. This shift is visible in the model as the centers of inner rings being displaced outward.'
+            },
+            'axis-dot': {
+                name: 'Magnetic Axis (Shafranov Center)',
+                color: '#ff4444',
+                desc: 'The <strong>magnetic axis</strong> is the single field line at the geometric center of the innermost flux surface. It is the O-point of the poloidal field — the hottest, densest point in the plasma.',
+                physics: 'The magnetic axis is shifted outward from the geometric center of the cross-section by the <strong>Shafranov shift</strong> Δ ≈ βp × a²/(2R), where βp is the poloidal beta (ratio of plasma pressure to poloidal magnetic field pressure), a is the minor radius, and R is the major radius. At high plasma pressure (high β), this shift can be 10-20% of the minor radius. If the shift becomes too large, the plasma becomes unstable.'
+            },
+            'axis-ring': {
+                name: 'Magnetic Axis Ring',
+                color: '#ff8c00',
+                desc: 'The <strong>magnetic axis ring</strong> traces the toroidal path of the magnetic axis through the full torus. It is the equilibrium center where the poloidal field is zero and the field is purely toroidal.',
+                physics: 'This ring defines the O-point at every toroidal angle. In a perfectly axisymmetric torus, it lies in the midplane. In practice, external field errors, RMP coils, and MHD instabilities cause small 3D deformations. The safety factor q approaches its minimum value (q₀, typically ~1) on this axis. When q₀ drops below 1, the internal kink instability triggers sawtooth oscillations.'
+            },
+            mantle: {
+                name: 'Radiation Mantle',
+                color: '#664422',
+                desc: 'The <strong>radiation mantle</strong> is a shell where impurity ions accumulate and radiate intensely. It sits at a specific temperature zone (~100-500 eV) where partially stripped heavy ions (carbon, tungsten, nitrogen) radiate most efficiently.',
+                physics: 'The radiation mantle acts as a natural "exhaust" for power — converting kinetic energy to photons that spread the heat load evenly on the wall instead of concentrating it at the divertor. In "radiative mantle" scenarios, up to 90% of the heating power can be radiated from this shell. Controlled impurity seeding (nitrogen, neon, argon) is used to engineer this layer deliberately, protecting divertor components from extreme heat fluxes (>10 MW/m²).'
+            },
+            q1: {
+                name: 'q=1 Sawtooth Surface',
+                color: '#8866ff',
+                desc: 'The <strong>q=1 surface</strong> is the flux surface where the safety factor q equals exactly 1 — meaning a field line completes exactly one poloidal turn for each toroidal turn. This is the boundary of the sawtooth instability.',
+                physics: 'When the central safety factor q₀ drops below 1 (due to peaking of the current profile), the internal kink mode grows inside the q=1 surface. It periodically "crashes" — rapidly flattening the core temperature and density profiles, then slowly rebuilding them. These sawtooth oscillations have a period of ~10-100 ms and can trigger other instabilities (NTMs) at outer rational surfaces. The q=1 radius is typically 30-40% of the minor radius.'
+            },
+            q2: {
+                name: 'q=2 Tearing Mode Surface',
+                color: '#6644cc',
+                desc: 'The <strong>q=2 surface</strong> is where the safety factor q equals 2 — a field line makes two poloidal turns per toroidal turn. This is the most dangerous rational surface for plasma stability.',
+                physics: 'The 2/1 tearing mode can form a magnetic island at this surface: a tear in the flux surface topology that creates an O-point/X-point chain. Large 2/1 islands (width > ~5% of minor radius) cause significant confinement loss and can trigger a disruption — a catastrophic loss of the entire plasma current. This is why the q=2 surface is carefully monitored. Neoclassical tearing modes (NTMs) at q=2 are seeded by sawtooth crashes at q=1 and are stabilized using electron cyclotron current drive (ECCD) targeted precisely at this radius.'
+            },
+            kink: {
+                name: 'Helical Kink Instability',
+                color: '#ff6b6b',
+                desc: 'The <strong>helical kink</strong> is a large-scale MHD instability where the plasma column distorts into a helical shape, like a twisted rope. The spiral structure shows the current filament corkscrewing through the torus.',
+                physics: 'The external kink becomes unstable when the edge safety factor q_a approaches an integer (especially q_a → 2). The plasma displacement is helical with mode numbers (m,n) = (1,1) for the internal kink or (2,1) for the external kink. In a tokamak, the Kruskal-Shafranov stability limit requires q_a > 1 everywhere for stability. Kink modes can grow on Alfvén timescales (~microseconds) and lead to disruptions. The spiral geometry you see here (winding 2.5 turns) represents a slowly growing kink that has saturated into a nonlinear helical state.'
+            },
+            elm: {
+                name: 'ELM Filament Band',
+                color: '#ffdd44',
+                desc: '<strong>Edge Localized Modes</strong> (ELMs) are periodic explosive instabilities at the plasma edge. This band shows a toroidal region where ELM filaments erupt from the pedestal.',
+                physics: 'Type I ELMs are triggered when the pedestal pressure gradient exceeds the peeling-ballooning stability limit. They expel 5-15% of the pedestal stored energy in ~1 ms — creating filamentary structures that spiral along field lines and deposit intense, localized heat on divertor surfaces. In ITER, unmitigated Type I ELMs would deliver ~20 MJ per crash, enough to melt tungsten. ELM control methods include resonant magnetic perturbations (RMPs), pellet pacing, and operating in naturally ELM-free regimes (QH-mode, I-mode).'
+            },
+            current: {
+                name: 'Current Filament Band',
+                color: '#44ddff',
+                desc: 'A <strong>current filament band</strong> is a toroidal region of concentrated parallel current flowing along field lines. These filaments carry bootstrap current and Ohmic current.',
+                physics: 'The current density profile j(r) determines the safety factor profile q(r) = rB_T/(R₀B_p), which in turn controls MHD stability. Peaked current profiles (low q₀) drive sawteeth; hollow profiles can trigger double tearing modes. Bootstrap current (self-generated by pressure gradients) contributes 30-80% of the total current in advanced scenarios and is concentrated near the pedestal. External current drive (neutral beams, RF waves) is used to shape j(r) for optimal stability and confinement.'
+            },
+            tearing: {
+                name: 'Tearing Mode Band',
+                color: '#ff88ff',
+                desc: '<strong>Tearing modes</strong> are resistive MHD instabilities that break and reconnect magnetic field lines at rational surfaces, forming magnetic islands that degrade confinement.',
+                physics: 'Classical tearing modes are driven by the current density gradient at rational surfaces. Neoclassical tearing modes (NTMs) are more insidious: they are sustained by the loss of bootstrap current inside a seed island. Once a seed island forms (often from a sawtooth crash), the missing bootstrap current inside the island reinforces the perturbation, causing the island to grow. NTMs at the q=3/2 and q=2 surfaces are the most common cause of confinement degradation in H-mode plasmas. They can be suppressed by precise ECCD injection into the island O-point.'
+            },
+            xpoint: {
+                name: 'X-Point (Magnetic Reconnection)',
+                color: '#ffffff',
+                desc: 'The <strong>X-point</strong> is the null point of the poloidal magnetic field where the separatrix crosses itself. Magnetic field lines converge from four directions, reconnect, and change topology.',
+                physics: 'At the X-point, the poloidal field B_p → 0, creating a saddle point in the flux function ψ. Field lines approaching the X-point slow down, pile up, and reconnect — converting magnetic energy to kinetic energy and heat. In a tokamak divertor, the X-point is engineered deliberately to channel exhaust plasma away from the main wall. The connection length (distance along a field line from midplane to divertor) diverges logarithmically near the X-point, creating a region of enhanced radiation and power dissipation. Multiple X-point configurations ("snowflake" divertors) spread the exhaust over a wider area.'
+            },
+            divertor: {
+                name: 'Divertor Exhaust Streams',
+                color: '#ff6633',
+                desc: '<strong>Divertor exhaust streams</strong> are the two channels of plasma flowing along open field lines from the X-point to the divertor target plates. They carry particles and heat out of the confined region.',
+                physics: 'Plasma in the divertor legs flows at near-sonic speeds (Mach ~1) toward the targets. The parallel heat flux can reach 10-20 MW/m² without mitigation. To protect the targets, the plasma is "detached" by injecting impurities (nitrogen, neon) that radiate the power before it reaches the surface, reducing the target heat flux to manageable levels (<5 MW/m²). The two legs (inner and outer) carry asymmetric power: typically 2/3 goes to the outer leg due to the magnetic field geometry (the "B×∇B drift direction").'
+            },
+            spine: {
+                name: 'Toroidal Current Channel',
+                color: '#cc4444',
+                desc: 'The <strong>toroidal current channel</strong> (spine) represents the net toroidal plasma current I_p flowing around the torus. This current creates the poloidal magnetic field that is essential for confinement.',
+                physics: 'The toroidal current is driven by the central solenoid (transformer action), neutral beam injection, RF waves, and the pressure-gradient-driven bootstrap current. A typical tokamak carries 1-15 MA of toroidal current. The current density peaks on axis and falls off toward the edge. Its radial profile determines the q-profile, which controls all MHD stability. The brightness gradient in the spine (brightest near the pinch) represents the current density peaking: j(r) is highest on axis and decays as j₀(1-(r/a)²)^α where α~1-3.'
+            }
+        };
+
+        // ===================== BUILD TORUS GEOMETRY =====================
+        function createTorusSurface() {
+            const torusSegs = 256, tubeSegs = 32;
+            const vertices = [], indices = [], normals = [];
+            for (let i = 0; i <= torusSegs; i++) {
+                const t = (i / torusSegs) * Math.PI * 2;
+                const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+                const cr = getCrossRadius(t);
+                const rx = Math.cos(t), rz = Math.sin(t);
+                for (let j = 0; j <= tubeSegs; j++) {
+                    const theta = (j / tubeSegs) * Math.PI * 2;
+                    const cosT = Math.cos(theta), sinT = Math.sin(theta);
+                    vertices.push(cx + rx * cosT * cr, sinT * cr, cz + rz * cosT * cr);
+                    normals.push(rx * cosT, sinT, rz * cosT);
+                }
+            }
+            for (let i = 0; i < torusSegs; i++) {
+                for (let j = 0; j < tubeSegs; j++) {
+                    const a = i * (tubeSegs + 1) + j, b = a + tubeSegs + 1;
+                    indices.push(a, b, a + 1, b, b + 1, a + 1);
+                }
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            geo.setIndex(indices);
+
+            const solidMat = new THREE.MeshPhongMaterial({
+                color: 0x1a2a4a, transparent: true, opacity: 0.25,
+                side: THREE.DoubleSide, shininess: 40, specular: 0x334466
+            });
+            const solid = new THREE.Mesh(geo, solidMat);
+
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x4ecdc4, wireframe: true, transparent: true, opacity: 0.10
+            });
+            const wire = new THREE.Mesh(geo.clone(), wireMat);
+
+            return { solid, wire };
+        }
+
+        // ===================== SPINE =====================
+        function createSpine() {
+            const pts = [], colors = [];
+            for (let i = 0; i <= 256; i++) {
+                const t = (i / 256) * Math.PI * 2;
+                pts.push(new THREE.Vector3(Math.cos(t) * R, 0, Math.sin(t) * R));
+                const progress = t / (Math.PI * 2);
+                const d = Math.min(progress, 1 - progress);
+                const b = 0.3 + 0.7 * (1 - Math.min(d * 3, 1));
+                colors.push(b, b * 0.3, b * 0.3);
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 }));
+
+            const tubeGeo = new THREE.TubeGeometry(
+                new THREE.CatmullRomCurve3(pts.slice(0, -1), true), 128, 0.006, 8, true
+            );
+            const tubeMat = new THREE.MeshBasicMaterial({ color: 0xcc4444, transparent: true, opacity: 0.35 });
+            const tube = new THREE.Mesh(tubeGeo, tubeMat);
+
+            return { line, tube };
+        }
+
+        // ===================== PINCH / X-POINT =====================
+        function createXPoint() {
+            const group = new THREE.Group();
+            const coreGeo = new THREE.SphereGeometry(0.008, 32, 32);
+            const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            core.position.set(R, 0, 0);
+            group.add(core);
+
+            const glow1 = new THREE.Mesh(
+                new THREE.SphereGeometry(0.018, 32, 32),
+                new THREE.MeshBasicMaterial({ color: 0xffffee, transparent: true, opacity: 0.55, depthWrite: false })
+            );
+            glow1.position.set(R, 0, 0);
+            group.add(glow1);
+
+            const glow2 = new THREE.Mesh(
+                new THREE.SphereGeometry(0.04, 32, 32),
+                new THREE.MeshBasicMaterial({ color: 0xffeedd, transparent: true, opacity: 0.2, depthWrite: false })
+            );
+            glow2.position.set(R, 0, 0);
+            group.add(glow2);
+
+            // Starburst sprite
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const ccx = 256, ccy = 256;
+            const bloom = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, 40);
+            bloom.addColorStop(0, 'rgba(255,255,255,1)');
+            bloom.addColorStop(0.3, 'rgba(255,255,240,0.6)');
+            bloom.addColorStop(0.7, 'rgba(255,240,220,0.15)');
+            bloom.addColorStop(1, 'rgba(255,230,200,0)');
+            ctx.fillStyle = bloom;
+            ctx.fillRect(0, 0, 512, 512);
+            for (let i = 0; i < 24; i++) {
+                const angle = (i / 24) * Math.PI * 2;
+                const tipDist = 252;
+                const tipX = ccx + Math.cos(angle) * tipDist;
+                const tipY = ccy + Math.sin(angle) * tipDist;
+                const spread = 0.025, baseR = 12;
+                const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.08, 'rgba(255,255,240,0.8)');
+                grad.addColorStop(0.25, 'rgba(255,240,220,0.35)');
+                grad.addColorStop(0.6, 'rgba(255,230,200,0.08)');
+                grad.addColorStop(1, 'rgba(255,220,180,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(ccx + Math.cos(angle - spread) * baseR, ccy + Math.sin(angle - spread) * baseR);
+                ctx.lineTo(tipX, tipY);
+                ctx.lineTo(ccx + Math.cos(angle + spread) * baseR, ccy + Math.sin(angle + spread) * baseR);
+                ctx.closePath(); ctx.fill();
+            }
+            for (let i = 0; i < 24; i++) {
+                const angle = ((i + 0.5) / 24) * Math.PI * 2;
+                const tipDist = 170;
+                const tipX = ccx + Math.cos(angle) * tipDist;
+                const tipY = ccy + Math.sin(angle) * tipDist;
+                const spread = 0.02, baseR = 8;
+                const grad = ctx.createLinearGradient(ccx, ccy, tipX, tipY);
+                grad.addColorStop(0, 'rgba(255,255,240,0.7)');
+                grad.addColorStop(0.3, 'rgba(255,240,220,0.2)');
+                grad.addColorStop(1, 'rgba(255,230,200,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(ccx + Math.cos(angle - spread) * baseR, ccy + Math.sin(angle - spread) * baseR);
+                ctx.lineTo(tipX, tipY);
+                ctx.lineTo(ccx + Math.cos(angle + spread) * baseR, ccy + Math.sin(angle + spread) * baseR);
+                ctx.closePath(); ctx.fill();
+            }
+            const spriteTex = new THREE.CanvasTexture(canvas);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: spriteTex, transparent: true, opacity: 0.8, depthWrite: false
+            }));
+            sprite.position.set(R, 0, 0);
+            sprite.scale.set(0.17, 0.17, 1);
+            group.add(sprite);
+
+            // Clickable sphere
+            const clickSphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.05, 16, 16),
+                new THREE.MeshBasicMaterial({ visible: false })
+            );
+            clickSphere.position.set(R, 0, 0);
+            group.add(clickSphere);
+
+            return { group, clickSphere };
+        }
+
+        // ===================== MAX EXPANSION RING =====================
+        function createMaxExpansionRing() {
+            const t = Math.PI;
+            const cr = getCrossRadius(t);
+            const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+            const rx = Math.cos(t), rz = Math.sin(t);
+            const pts = [];
+            for (let j = 0; j <= 64; j++) {
+                const theta = (j / 64) * Math.PI * 2;
+                pts.push(new THREE.Vector3(cx + rx * Math.cos(theta) * cr, Math.sin(theta) * cr, cz + rz * Math.cos(theta) * cr));
+            }
+            const curve = new THREE.CatmullRomCurve3(pts.slice(0, -1), true);
+            const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.004, 8, true);
+            const tube = new THREE.Mesh(tubeGeo, new THREE.MeshBasicMaterial({ color: 0xff8c00, transparent: true, opacity: 0.9 }));
+            return tube;
+        }
+
+        // ===================== CROSS-SECTION DISC AT MAX EXPANSION =====================
+        function createCrossSection() {
+            const group = new THREE.Group();
+            const t = Math.PI;
+            const cr = getCrossRadius(t);
+            const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+            const rx = Math.cos(t), rz = Math.sin(t);
+            const center = new THREE.Vector3(cx, 0, cz);
+
+            const shafranovShift = cr * 0.1;
+
+            // Helper: ring in cross-section plane
+            function makeRing(radius, shiftFrac, color, opacity, elongation) {
+                const shift = shafranovShift * shiftFrac;
+                const pts = [];
+                for (let i = 0; i <= 96; i++) {
+                    const a = (i / 96) * Math.PI * 2;
+                    pts.push(new THREE.Vector3(
+                        cx + rx * (Math.cos(a) * radius + shift),
+                        Math.sin(a) * radius * (elongation || 1),
+                        cz + rz * (Math.cos(a) * radius + shift)
+                    ));
+                }
+                const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+            }
+
+            // Helper: tube ring for clickability
+            function makeTubeRing(radius, shiftFrac, color, opacity, elongation, thickness) {
+                const shift = shafranovShift * shiftFrac;
+                const pts = [];
+                for (let i = 0; i <= 64; i++) {
+                    const a = (i / 64) * Math.PI * 2;
+                    pts.push(new THREE.Vector3(
+                        cx + rx * (Math.cos(a) * radius + shift),
+                        Math.sin(a) * radius * (elongation || 1),
+                        cz + rz * (Math.cos(a) * radius + shift)
+                    ));
+                }
+                const curve = new THREE.CatmullRomCurve3(pts.slice(0, -1), true);
+                const geo = new THREE.TubeGeometry(curve, 64, thickness || 0.003, 6, true);
+                return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity }));
+            }
+
+            // a) Filled core disc
+            const edgePts = [];
+            for (let i = 0; i <= 64; i++) {
+                const a = (i / 64) * Math.PI * 2;
+                edgePts.push(new THREE.Vector3(cx + rx * Math.cos(a) * cr, Math.sin(a) * cr, cz + rz * Math.cos(a) * cr));
+            }
+            const fillVerts = [];
+            for (let i = 0; i < 64; i++) {
+                fillVerts.push(center.x, center.y, center.z);
+                fillVerts.push(edgePts[i].x, edgePts[i].y, edgePts[i].z);
+                fillVerts.push(edgePts[i + 1].x, edgePts[i + 1].y, edgePts[i + 1].z);
+            }
+            const fillGeo = new THREE.BufferGeometry();
+            fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(fillVerts, 3));
+            const coreFill = new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({
+                color: 0x00ff88, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false
+            }));
+            group.add(coreFill);
+
+            // b) Outer edge ring (boundary)
+            const edgeRing = makeRing(cr, 0, 0x4ecdc4, 0.7, 1);
+            group.add(edgeRing);
+            const edgeTube = makeTubeRing(cr, 0, 0x4ecdc4, 0.5, 1, 0.004);
+            group.add(edgeTube);
+
+            // c) Separatrix (hot pink, at 97% radius)
+            const sepRing = makeTubeRing(cr * 0.97, 0.02, 0xff69b4, 0.7, 1.01, 0.003);
+            group.add(sepRing);
+
+            // d) Pedestal (bright gold, at 92% radius, thicker)
+            const pedRing = makeTubeRing(cr * 0.92, 0.05, 0xffaa00, 0.85, 1.02, 0.005);
+            group.add(pedRing);
+
+            // e) Radiation mantle (dim brown/orange, at 85%)
+            const mantleRing = makeTubeRing(cr * 0.85, 0.1, 0x664422, 0.5, 1.03, 0.003);
+            group.add(mantleRing);
+
+            // f) Nested flux surfaces (10 levels, Shafranov-shifted, slightly elongated)
+            const fluxRings = [];
+            const numFlux = 10;
+            for (let s = 1; s <= numFlux; s++) {
+                const frac = s / (numFlux + 1);
+                const elong = 1 + 0.06 * frac;
+                const shiftF = 1 - frac * frac;
+                const op = 0.12 + 0.08 * (1 - frac);
+                const ring = makeRing(cr * frac, shiftF, 0x00ff88, op, elong);
+                group.add(ring);
+                fluxRings.push(ring);
+            }
+            // Invisible clickable disc for flux surfaces
+            const fluxClickDisc = new THREE.Mesh(
+                new THREE.CircleGeometry(cr * 0.75, 32),
+                new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+            );
+            fluxClickDisc.position.set(cx, 0, cz);
+            fluxClickDisc.lookAt(cx + rx, 0, cz + rz);
+            group.add(fluxClickDisc);
+
+            // g) q=1 surface (violet, at 35% radius)
+            const q1Ring = makeTubeRing(cr * 0.35, 0.88, 0x8866ff, 0.8, 1.01, 0.004);
+            group.add(q1Ring);
+
+            // h) q=2 surface (violet, at 70% radius)
+            const q2Ring = makeTubeRing(cr * 0.70, 0.5, 0x6644cc, 0.6, 1.04, 0.004);
+            group.add(q2Ring);
+
+            // i) Magnetic axis dot (red, Shafranov-shifted)
+            const axisDot = new THREE.Mesh(
+                new THREE.SphereGeometry(0.012, 24, 24),
+                new THREE.MeshBasicMaterial({ color: 0xff4444 })
+            );
+            axisDot.position.set(cx + rx * shafranovShift, 0, cz + rz * shafranovShift);
+            group.add(axisDot);
+
+            // Axis glow
+            const axisGlow = new THREE.Mesh(
+                new THREE.SphereGeometry(0.025, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.25, depthWrite: false })
+            );
+            axisGlow.position.set(cx + rx * shafranovShift, 0, cz + rz * shafranovShift);
+            group.add(axisGlow);
+
+            return {
+                group,
+                edgeTube,      // boundary
+                sepRing,       // separatrix
+                pedRing,       // pedestal
+                mantleRing,    // radiation mantle
+                fluxClickDisc, // flux surfaces click target
+                q1Ring,        // q=1
+                q2Ring,        // q=2
+                axisDot,       // magnetic axis dot
+                coreFill       // plasma core
+            };
+        }
+
+        // ===================== SCRAPE-OFF LAYER (visible shell between separatrix and wall) =====================
+        function createSOL() {
+            // A thin toroidal shell at 98.5% of cross-section radius
+            const segs = 128, tubeS = 24;
+            const vertices = [], indices = [];
+            for (let i = 0; i <= segs; i++) {
+                const t = (i / segs) * Math.PI * 2;
+                const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+                const cr = getCrossRadius(t) * 0.985;
+                const rx = Math.cos(t), rz = Math.sin(t);
+                for (let j = 0; j <= tubeS; j++) {
+                    const theta = (j / tubeS) * Math.PI * 2;
+                    vertices.push(cx + rx * Math.cos(theta) * cr, Math.sin(theta) * cr, cz + rz * Math.cos(theta) * cr);
+                }
+            }
+            for (let i = 0; i < segs; i++) {
+                for (let j = 0; j < tubeS; j++) {
+                    const a = i * (tubeS + 1) + j, b = a + tubeS + 1;
+                    indices.push(a, b, a + 1, b, b + 1, a + 1);
+                }
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+            const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                color: 0x1a3050, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false
+            }));
+            return mesh;
+        }
+
+        // ===================== HELICAL KINK INSTABILITY =====================
+        function createKink() {
+            const group = new THREE.Group();
+            const tStart = timeToTorusParam(3.4), tEnd = timeToTorusParam(4.2);
+            const spiralWinds = 2.5, spineSegs = 200, tubeSegs = 8;
+            const spiralPts = [];
+            for (let i = 0; i <= spineSegs; i++) {
+                const frac = i / spineSegs;
+                const t = tStart + frac * (tEnd - tStart);
+                const cr = getCrossRadius(t);
+                const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+                const rx = Math.cos(t), rz = Math.sin(t);
+                const timeAtT = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+                const universeDiam = timeAtT * PHI4;
+                const minOrbitBly = 0.5, maxOrbitBly = 5;
+                const orbitBly = minOrbitBly + (maxOrbitBly - minOrbitBly) * frac;
+                const orbitModelR = cr * (orbitBly / universeDiam);
+                const spiralAngle = frac * spiralWinds * Math.PI * 2;
+                spiralPts.push(new THREE.Vector3(
+                    cx + rx * Math.cos(spiralAngle) * orbitModelR,
+                    Math.sin(spiralAngle) * orbitModelR,
+                    cz + rz * Math.cos(spiralAngle) * orbitModelR
+                ));
+            }
+            const vertices = [], indices = [];
+            for (let i = 0; i <= spineSegs; i++) {
+                const p = spiralPts[i];
+                const pPrev = spiralPts[Math.max(0, i - 1)];
+                const pNext = spiralPts[Math.min(spineSegs, i + 1)];
+                const tangent = new THREE.Vector3().subVectors(pNext, pPrev).normalize();
+                let up = new THREE.Vector3(0, 1, 0);
+                if (Math.abs(tangent.dot(up)) > 0.9) up = new THREE.Vector3(1, 0, 0);
+                const binormal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+                const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+                const frac = i / spineSegs;
+                const t = tStart + frac * (tEnd - tStart);
+                const cr = getCrossRadius(t);
+                const timeAtT = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+                const universeDiam = timeAtT * PHI4;
+                const tubeR = cr * (1 / universeDiam);
+                for (let j = 0; j <= tubeSegs; j++) {
+                    const theta = (j / tubeSegs) * Math.PI * 2;
+                    const offset = new THREE.Vector3()
+                        .addScaledVector(normal, Math.cos(theta) * tubeR)
+                        .addScaledVector(binormal, Math.sin(theta) * tubeR);
+                    vertices.push(p.x + offset.x, p.y + offset.y, p.z + offset.z);
+                }
+            }
+            for (let i = 0; i < spineSegs; i++) {
+                for (let j = 0; j < tubeSegs; j++) {
+                    const a = i * (tubeSegs + 1) + j, b = a + tubeSegs + 1;
+                    indices.push(a, b, a + 1, b, b + 1, a + 1);
+                }
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+            const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                color: 0xff6b6b, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+            }));
+            group.add(mesh);
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(spiralPts);
+            group.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xff6b6b, transparent: true, opacity: 0.7 })));
+            return { group, mesh };
+        }
+
+        // ===================== STRUCTURE BANDS (ELM, Current, Tearing) =====================
+        function createStructureBand(tStartGyr, tEndGyr, sizeBly, color) {
+            const group = new THREE.Group();
+            const tStart = timeToTorusParam(tStartGyr), tEnd = timeToTorusParam(tEndGyr);
+            const numRings = 8;
+            const allMeshes = [];
+            for (let i = 0; i <= numRings; i++) {
+                const frac = i / numRings;
+                const t = tStart + frac * (tEnd - tStart);
+                const cr = getCrossRadius(t);
+                const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+                const rx = Math.cos(t), rz = Math.sin(t);
+                const timeAtT = ((getCrossRadius(t) - MIN_CROSS) / (MAX_CROSS - MIN_CROSS)) * MAX_TIME_GYR;
+                const universeDiam = timeAtT * PHI4;
+                const ringR = cr * Math.min(sizeBly / universeDiam, 0.9);
+                const pts = [];
+                for (let j = 0; j <= 48; j++) {
+                    const a = (j / 48) * Math.PI * 2;
+                    pts.push(new THREE.Vector3(
+                        cx + rx * Math.cos(a) * ringR, Math.sin(a) * ringR, cz + rz * Math.cos(a) * ringR
+                    ));
+                }
+                const curve = new THREE.CatmullRomCurve3(pts.slice(0, -1), true);
+                const tubeGeo = new THREE.TubeGeometry(curve, 48, 0.003, 6, true);
+                const tube = new THREE.Mesh(tubeGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.4 }));
+                group.add(tube);
+                allMeshes.push(tube);
+            }
+            return { group, meshes: allMeshes };
+        }
+
+        // ===================== DIVERTOR EXHAUST STREAMS =====================
+        function createDivertorStreams() {
+            const group = new THREE.Group();
+            const pinchX = R, pinchY = 0, pinchZ = 0;
+            const streamLength = 40;
+            const allMeshes = [];
+
+            function makeStream(yDir) {
+                const pts = [];
+                for (let i = 0; i <= streamLength; i++) {
+                    const frac = i / streamLength;
+                    const spread = frac * frac * 0.15;
+                    const yOff = yDir * frac * 0.12;
+                    const xOff = -frac * 0.08;
+                    pts.push(new THREE.Vector3(
+                        pinchX + xOff + Math.sin(frac * 8) * 0.005,
+                        pinchY + yOff,
+                        pinchZ + spread * yDir * 0.5
+                    ));
+                }
+                const curve = new THREE.CatmullRomCurve3(pts);
+                const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.006 , 8, false);
+                const tubeMat = new THREE.MeshBasicMaterial({ color: 0xff6633, transparent: true, opacity: 0.7 });
+                const tube = new THREE.Mesh(tubeGeo, tubeMat);
+                group.add(tube);
+                allMeshes.push(tube);
+
+                // Glow tube
+                const glowGeo = new THREE.TubeGeometry(curve, 32, 0.015, 8, false);
+                const glowMat = new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.15, depthWrite: false });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                group.add(glow);
+            }
+            makeStream(1);
+            makeStream(-1);
+            return { group, meshes: allMeshes };
+        }
+
+        // ===================== SEPARATRIX (full toroidal shell) =====================
+        function createSeparatrixShell() {
+            const segs = 128, tubeS = 32;
+            const vertices = [], indices = [];
+            for (let i = 0; i <= segs; i++) {
+                const t = (i / segs) * Math.PI * 2;
+                const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+                const cr = getCrossRadius(t) * 0.97;
+                const rx = Math.cos(t), rz = Math.sin(t);
+                for (let j = 0; j <= tubeS; j++) {
+                    const theta = (j / tubeS) * Math.PI * 2;
+                    vertices.push(cx + rx * Math.cos(theta) * cr, Math.sin(theta) * cr * 1.01, cz + rz * Math.cos(theta) * cr);
+                }
+            }
+            for (let i = 0; i < segs; i++) {
+                for (let j = 0; j < tubeS; j++) {
+                    const a = i * (tubeS + 1) + j, b = a + tubeS + 1;
+                    indices.push(a, b, a + 1, b, b + 1, a + 1);
+                }
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+            return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                color: 0xff69b4, wireframe: true, transparent: true, opacity: 0.06, depthWrite: false
+            }));
+        }
+
+        // ===================== NESTED FLUX SURFACES (full toroidal shells) =====================
+        function createFluxShells() {
+            const group = new THREE.Group();
+            const levels = [0.25, 0.45, 0.65];
+            levels.forEach(frac => {
+                const segs = 96, tubeS = 24;
+                const vertices = [], indices = [];
+                const elong = 1 + 0.06 * frac;
+                const shiftFrac = 1 - frac * frac;
+                for (let i = 0; i <= segs; i++) {
+                    const t = (i / segs) * Math.PI * 2;
+                    const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+                    const cr = getCrossRadius(t) * frac;
+                    const rx = Math.cos(t), rz = Math.sin(t);
+                    const shift = getCrossRadius(t) * 0.1 * shiftFrac;
+                    for (let j = 0; j <= tubeS; j++) {
+                        const theta = (j / tubeS) * Math.PI * 2;
+                        vertices.push(
+                            cx + rx * (Math.cos(theta) * cr + shift),
+                            Math.sin(theta) * cr * elong,
+                            cz + rz * (Math.cos(theta) * cr + shift)
+                        );
+                    }
+                }
+                for (let i = 0; i < segs; i++) {
+                    for (let j = 0; j < tubeS; j++) {
+                        const a = i * (tubeS + 1) + j, b = a + tubeS + 1;
+                        indices.push(a, b, a + 1, b, b + 1, a + 1);
+                    }
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geo.setIndex(indices);
+                const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                    color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.04, depthWrite: false
+                }));
+                group.add(mesh);
+            });
+            return group;
+        }
+
+        // ===================== PEDESTAL SHELL (full toroidal) =====================
+        function createPedestalShell() {
+            const segs = 128, tubeS = 32;
+            const vertices = [], indices = [];
+            for (let i = 0; i <= segs; i++) {
+                const t = (i / segs) * Math.PI * 2;
+                const cx = Math.cos(t) * R, cz = Math.sin(t) * R;
+                const cr = getCrossRadius(t) * 0.92;
+                const rx = Math.cos(t), rz = Math.sin(t);
+                const shift = getCrossRadius(t) * 0.1 * 0.05;
+                for (let j = 0; j <= tubeS; j++) {
+                    const theta = (j / tubeS) * Math.PI * 2;
+                    vertices.push(
+                        cx + rx * (Math.cos(theta) * cr + shift),
+                        Math.sin(theta) * cr * 1.02,
+                        cz + rz * (Math.cos(theta) * cr + shift)
+                    );
+                }
+            }
+            for (let i = 0; i < segs; i++) {
+                for (let j = 0; j < tubeS; j++) {
+                    const a = i * (tubeS + 1) + j, b = a + tubeS + 1;
+                    indices.push(a, b, a + 1, b, b + 1, a + 1);
+                }
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geo.setIndex(indices);
+            return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                color: 0xffaa00, wireframe: true, transparent: true, opacity: 0.06, depthWrite: false
+            }));
+        }
+
+        // ===================== BUILD SCENE =====================
+        // Lighting
+        scene.add(new THREE.AmbientLight(0x334455, 0.6));
+        const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+        dir1.position.set(10, 15, 10); scene.add(dir1);
+        const dir2 = new THREE.DirectionalLight(0x4466aa, 0.4);
+        dir2.position.set(-10, -5, -10); scene.add(dir2);
+
+        // Torus surface
+        const { solid: torusSolid, wire: torusWire } = createTorusSurface();
+        scene.add(torusSolid);
+        scene.add(torusWire);
+        register('boundary', [torusWire, torusSolid]);
+
+        // Scrape-off layer
+        const sol = createSOL();
+        scene.add(sol);
+        register('sol', sol);
+
+        // Separatrix shell
+        const sepShell = createSeparatrixShell();
+        scene.add(sepShell);
+        register('separatrix', sepShell);
+
+        // Pedestal shell
+        const pedShell = createPedestalShell();
+        scene.add(pedShell);
+        register('pedestal', pedShell);
+
+        // Nested flux shells
+        const fluxShells = createFluxShells();
+        scene.add(fluxShells);
+
+        // Spine
+        const { line: spineLine, tube: spineTube } = createSpine();
+        scene.add(spineLine);
+        scene.add(spineTube);
+        register('spine', spineTube);
+
+        // X-point
+        const { group: xpointGroup, clickSphere: xpointClick } = createXPoint();
+        scene.add(xpointGroup);
+        register('xpoint', xpointClick);
+
+        // Max expansion ring
+        const axisRing = createMaxExpansionRing();
+        scene.add(axisRing);
+        register('axis-ring', axisRing);
+
+        // Cross-section disc
+        const cs = createCrossSection();
+        scene.add(cs.group);
+        register('core', cs.coreFill);
+        register('flux', cs.fluxClickDisc);
+        register('axis-dot', cs.axisDot);
+        register('q1', cs.q1Ring);
+        register('q2', cs.q2Ring);
+        register('mantle', cs.mantleRing);
+
+        // Helical kink
+        const { group: kinkGroup, mesh: kinkMesh } = createKink();
+        scene.add(kinkGroup);
+        register('kink', kinkMesh);
+
+        // Structure bands
+        const elm = createStructureBand(6.6, 6.9, 5.6, 0xffdd44);
+        scene.add(elm.group);
+        register('elm', elm.meshes);
+
+        const currentBand = createStructureBand(9.0, 9.4, 1.0, 0x44ddff);
+        scene.add(currentBand.group);
+        register('current', currentBand.meshes);
+
+        const tearingBand = createStructureBand(12.3, 12.7, 1.38, 0xff88ff);
+        scene.add(tearingBand.group);
+        register('tearing', tearingBand.meshes);
+
+        // Divertor streams
+        const { group: divGroup, meshes: divMeshes } = createDivertorStreams();
+        scene.add(divGroup);
+        register('divertor', divMeshes);
+
+        // ===================== RAYCASTING & INTERACTION =====================
+        const raycaster = new THREE.Raycaster();
+        raycaster.params.Line = { threshold: 0.02 };
+        const mouse = new THREE.Vector2();
+        let hoveredId = null;
+        let selectedId = null;
+
+        function getAllClickMeshes() {
+            const all = [];
+            Object.values(clickables).forEach(arr => arr.forEach(m => all.push(m)));
+            return all;
+        }
+
+        function updateHover(mx, my) {
+            mouse.x = (mx / innerWidth) * 2 - 1;
+            mouse.y = -(my / innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObjects(getAllClickMeshes(), true);
+            const crosshair = document.getElementById('crosshair');
+            const container = document.getElementById('container');
+            if (hits.length > 0) {
+                let obj = hits[0].object;
+                while (obj && !obj.userData.elementId) obj = obj.parent;
+                if (obj && obj.userData.elementId) {
+                    hoveredId = obj.userData.elementId;
+                    crosshair.style.display = 'block';
+                    crosshair.style.left = mx + 'px';
+                    crosshair.style.top = my + 'px';
+                    container.classList.add('clicking');
+                    return;
+                }
+            }
+            hoveredId = null;
+            crosshair.style.display = 'none';
+            container.classList.remove('clicking');
+        }
+
+        function handleClick(mx, my) {
+            mouse.x = (mx / innerWidth) * 2 - 1;
+            mouse.y = -(my / innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObjects(getAllClickMeshes(), true);
+            if (hits.length > 0) {
+                let obj = hits[0].object;
+                while (obj && !obj.userData.elementId) obj = obj.parent;
+                if (obj && obj.userData.elementId) {
+                    selectElement(obj.userData.elementId);
+                    return;
+                }
+            }
+            deselectElement();
+        }
+
+        function selectElement(id) {
+            if (!elementInfo[id]) return;
+            selectedId = id;
+            const info = elementInfo[id];
+            const detail = document.getElementById('detail');
+            document.getElementById('detail-swatch').style.background = info.color;
+            document.getElementById('detail-title').textContent = info.name;
+            document.getElementById('detail-body').innerHTML = info.desc + '<div class="physics">' + info.physics + '</div>';
+            detail.classList.add('visible');
+
+            document.querySelectorAll('.leg-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.id === id);
+            });
+
+            // Highlight the selected element
+            Object.entries(clickables).forEach(([eid, meshes]) => {
+                meshes.forEach(m => {
+                    if (m.material && !m.material._origOpacity) {
+                        m.material._origOpacity = m.material.opacity;
+                    }
+                });
+            });
+        }
+
+        function deselectElement() {
+            selectedId = null;
+            document.getElementById('detail').classList.remove('visible');
+            document.querySelectorAll('.leg-item').forEach(el => el.classList.remove('active'));
+        }
+
+        // Legend click handlers
+        document.querySelectorAll('.leg-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const id = el.dataset.id;
+                if (selectedId === id) deselectElement();
+                else selectElement(id);
+            });
+        });
+
+        document.getElementById('detail-close').addEventListener('click', deselectElement);
+
+        // S key to toggle UI
+        let uiHidden = false;
+        document.addEventListener('keydown', e => {
+            if (e.key === 's' || e.key === 'S') {
+                uiHidden = !uiHidden;
+                ['legend', 'detail', 'hint'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = uiHidden ? 'none' : '';
+                });
+            }
+        });
+
+        // ===================== ANIMATE =====================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Slow auto-rotate
+            spherical.theta += 0.0003;
+
+            camera.position.x = lookAt.x + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+            camera.position.y = lookAt.y + spherical.radius * Math.cos(spherical.phi);
+            camera.position.z = lookAt.z + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+            camera.lookAt(lookAt);
+
+            // Gentle pulse on x-point starburst
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.002);
+            const xg = xpointGroup.children;
+            if (xg[0]) xg[0].material.opacity = 1.0;
+            if (xg[1]) xg[1].material.opacity = 0.4 + pulse * 0.15;
+            if (xg[2]) xg[2].material.opacity = 0.15 + pulse * 0.1;
+            if (xg[3]) xg[3].material.opacity = 0.7 + pulse * 0.2;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    })();
+    </script>
+</body>
+</html>
