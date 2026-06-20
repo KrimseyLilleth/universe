@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Klimax — minimal zoom with fade</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0a0a0a; color: #eee;
+               font-family: sans-serif; overflow: hidden; height: 100%; }
+  #c { position: fixed; inset: 0; }
+  #ui { position: fixed; bottom: 16px; left: 16px; z-index: 10;
+        background: rgba(20,20,25,0.85); border: 1px solid #333;
+        border-radius: 6px; padding: 12px; }
+  button { padding: 6px 12px; margin: 0 3px; background: #333; color: #eee;
+           border: 1px solid #555; border-radius: 4px; cursor: pointer;
+           font-size: 13px; }
+  button.active { background: #ff9933; color: #000; border-color: #ff9933; }
+  #status { position: fixed; top: 16px; left: 16px; z-index: 10;
+            font-family: monospace; font-size: 13px; color: #ccc;
+            background: rgba(20,20,25,0.85); padding: 8px 12px;
+            border-radius: 5px; }
+  .credit { position: fixed; bottom: 10px; right: 14px;
+            font-size: 13px; font-weight: 600; color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  .tlabel {
+    color: #fff;
+    font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 600;
+    pointer-events: none;
+    text-shadow: 0 0 5px #000, 0 0 5px #000, 0 0 5px #000;
+    white-space: nowrap;
+    transform: translate(-50%, -100%);
+  }
+</style>
+</head>
+<body>
+
+<div id="c"></div>
+<div id="status">Initialising…</div>
+<div id="ui">
+  <button id="b-in">◀ Inward</button>
+  <button id="b-pause" class="active">❚❚ Pause</button>
+  <button id="b-out">▶ Outward</button>
+  <button id="b-reset">⟲ Reset</button>
+</div>
+<div class="credit">Krimsey Lilleth  klilleth@proton.me</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const PHI = (1 + Math.sqrt(5)) / 2;
+const PHI3 = PHI ** 3;
+const LOG_PHI3 = Math.log(PHI3);
+
+// =============================================================
+//   scene
+// =============================================================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a0a);
+
+const camera = new THREE.PerspectiveCamera(
+  60, innerWidth / innerHeight, 0.01, 1e10
+);
+const DEFAULT_POS = new THREE.Vector3(28, 22, 44);
+camera.position.copy(DEFAULT_POS);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+document.getElementById('c').appendChild(renderer.domElement);
+
+// CSS2D renderer for HTML labels in 3D space.
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(innerWidth, innerHeight);
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.left = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+document.getElementById('c').appendChild(labelRenderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+dl.position.set(15, 25, 20);
+scene.add(dl);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 0, 0);
+
+// =============================================================
+//   Torus factory.  Returns an object with a fade(f) method that
+//   scales opacity of every material in the torus by f.
+// =============================================================
+const COLORS = [0xc39bff, 0x5fa8d3, 0xff9933, 0x33cc66, 0xffd35e, 0xff66cc, 0x66ddff];
+
+function buildTorus(L) {
+  const rTube = Math.pow(PHI, 3 * L);
+  const RMaj  = PHI * rTube;
+  const color = COLORS[((L % COLORS.length) + COLORS.length) % COLORS.length];
+
+  const grp = new THREE.Group();
+  scene.add(grp);
+
+  // Track every material along with its base opacity so we can fade smoothly.
+  const tracked = [];
+  function track(material, baseOpacity) {
+    material.transparent = true;
+    material.opacity = baseOpacity;
+    tracked.push({ mat: material, base: baseOpacity });
+  }
+
+  // Track label divs so their CSS opacity fades with the torus.
+  const trackedLabels = [];
+  function makeLabel(text, x, y, z) {
+    const div = document.createElement('div');
+    div.className = 'tlabel';
+    div.innerHTML = text;
+    const obj = new CSS2DObject(div);
+    obj.position.set(x, y, z);
+    grp.add(obj);
+    trackedLabels.push(div);
+  }
+
+  // ---- Surface ----
+  const surfMat = new THREE.MeshPhongMaterial({
+    color, side: THREE.DoubleSide, depthWrite: false,
+  });
+  track(surfMat, 0.18);
+  const surf = new THREE.Mesh(new THREE.TorusGeometry(RMaj, rTube, 32, 96), surfMat);
+  surf.rotation.x = Math.PI / 2;
+  grp.add(surf);
+
+  // ---- Grid: 6 parallels + 12 meridians ----
+  function lineMat() {
+    const m = new THREE.LineBasicMaterial({ color, depthWrite: false });
+    track(m, 0.55);
+    return m;
+  }
+  function ring(radius, height) {
+    const pts = [];
+    for (let i = 0; i <= 96; i++) {
+      const a = i / 96 * Math.PI * 2;
+      pts.push(new THREE.Vector3(radius * Math.cos(a), height, radius * Math.sin(a)));
+    }
+    return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat());
+  }
+  function meridian(toroidalAngle) {
+    const cu = Math.cos(toroidalAngle), su = Math.sin(toroidalAngle);
+    const pts = [];
+    for (let j = 0; j <= 48; j++) {
+      const v = j / 48 * Math.PI * 2;
+      const cv = Math.cos(v), sv = Math.sin(v);
+      const r = RMaj + rTube * cv;
+      pts.push(new THREE.Vector3(r * cu, rTube * sv, r * su));
+    }
+    return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat());
+  }
+  for (let p = 0; p < 6; p++) {
+    const v = p / 6 * Math.PI * 2;
+    grp.add(ring(RMaj + rTube * Math.cos(v), rTube * Math.sin(v)));
+  }
+  for (let m = 0; m < 12; m++) {
+    grp.add(meridian(m / 12 * Math.PI * 2));
+  }
+
+  // ---- Spine: thin mesh torus, always reads as a solid ring ----
+  const spineMat = new THREE.MeshBasicMaterial({ color });
+  track(spineMat, 1.0);
+  const spineR = Math.max(0.06, rTube * 0.008);
+  const spine = new THREE.Mesh(new THREE.TorusGeometry(RMaj, spineR, 6, 96), spineMat);
+  spine.rotation.x = Math.PI / 2;
+  grp.add(spine);
+
+  // ---- Phi-power markers ----
+  // Each torus T_L owns three unique phi-power positions along the
+  // radial line, so successive tori contribute consecutive powers
+  // without duplicates:
+  //     phi^(3L)    -- tube radius value
+  //     phi^(3L+1)  -- spine (R)
+  //     phi^(3L+2)  -- outer edge (R+r), shared with T_(L+1)'s inner
+  // (T_L's inner edge phi^(3L-1) is contributed by T_(L-1)'s outer.)
+  const x_tube  = Math.pow(PHI, 3 * L);
+  const x_spine = Math.pow(PHI, 3 * L + 1);
+  const x_outer = Math.pow(PHI, 3 * L + 2);
+  // Offset above the equatorial plane scales with x so labels stay
+  // visually close to their ticks at all zoom levels.
+  const yOff = (x) => x * 0.06 + 0.05;
+  makeLabel(`φ<sup>${3*L}</sup>`,   x_tube,  yOff(x_tube),  0);
+  makeLabel(`φ<sup>${3*L+1}</sup>`, x_spine, yOff(x_spine), 0);
+  makeLabel(`φ<sup>${3*L+2}</sup>`, x_outer, yOff(x_outer), 0);
+
+  return {
+    L,
+    group: grp,
+    fade(f) {
+      // f in [0, 1].  If f <= 0, hide the whole group to skip work.
+      if (f <= 0.001) {
+        grp.visible = false;
+        for (const div of trackedLabels) div.style.opacity = '0';
+        return;
+      }
+      grp.visible = true;
+      for (const t of tracked) t.mat.opacity = t.base * f;
+      for (const div of trackedLabels) div.style.opacity = String(f);
+    },
+  };
+}
+
+// Build a stack of tori spanning 50 levels each direction from zero,
+// so the eternal oscillation has plenty of fresh tori to fade in/out.
+const TORI = [];
+for (let L = -50; L <= 50; L++) {
+  TORI.push(buildTorus(L));
+}
+
+// =============================================================
+//   Zoom + fade
+// =============================================================
+const BASE_DIST   = camera.position.distanceTo(controls.target);
+const WINDOW_HALF = 2.5;            // levels of fade window each side
+let   direction   = 0;              // -1, 0, +1
+const speed       = 0.5;            // levels/sec at full pace
+let   lastT       = performance.now();
+
+// Eternal oscillation parameters.  When the zoom approaches LIMIT in
+// the current direction, the effective speed smoothstep-ramps down to
+// zero over SLOWDOWN levels, then direction auto-reverses.
+const LIMIT    = 47;                // |currentLevel| limit (just inside the built range)
+const SLOWDOWN = 3;                 // levels over which to slow down before LIMIT
+
+const statusEl = document.getElementById('status');
+
+function smoothstep(x) { return x * x * (3 - 2 * x); }
+
+function tick() {
+  const now = performance.now();
+  const dt  = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  if (direction !== 0) {
+    // currentLevel from the camera distance BEFORE moving this frame
+    const dPre = camera.position.distanceTo(controls.target);
+    const lvl  = Math.log(dPre / BASE_DIST) / LOG_PHI3;
+
+    // Distance to the limit in the current direction of travel.
+    const dToLim = (direction > 0) ? (LIMIT - lvl) : (lvl - (-LIMIT));
+
+    if (dToLim <= 0) {
+      // Crossed the limit — flip direction, update button highlights.
+      setDir(-direction);
+    } else {
+      // Smoothly ramp speed down as we approach the limit
+      let sf = 1.0;
+      if (dToLim < SLOWDOWN) {
+        const x = dToLim / SLOWDOWN;
+        sf = x * x * (3 - 2 * x);              // smoothstep
+      }
+      const effSpeed = speed * sf;
+      if (effSpeed > 1e-4) {
+        const factor = Math.exp(LOG_PHI3 * direction * effSpeed * dt);
+        const off = camera.position.clone().sub(controls.target);
+        off.multiplyScalar(factor);
+        camera.position.copy(controls.target).add(off);
+      } else {
+        // Effectively stopped — auto-reverse direction.
+        setDir(-direction);
+      }
+    }
+  }
+
+  controls.update();
+
+  // Adapt near/far each frame
+  const camDist = camera.position.distanceTo(controls.target);
+  camera.near = Math.max(camDist * 1e-4, 0.001);
+  camera.far  = camDist * 1e4;
+  camera.updateProjectionMatrix();
+
+  // currentLevel = log_phi^3 (camDist / BASE_DIST)
+  const currentLevel = Math.log(camDist / BASE_DIST) / LOG_PHI3;
+
+  // Fade every torus based on distance from current level
+  for (const t of TORI) {
+    const d = Math.abs(t.L - currentLevel);
+    if (d >= WINDOW_HALF) {
+      t.fade(0);                         // off
+    } else {
+      const x = 1 - d / WINDOW_HALF;     // 1 at centre, 0 at window edge
+      t.fade(smoothstep(x));
+    }
+  }
+
+  statusEl.textContent =
+    `level: ${currentLevel.toFixed(2)}  ·  cam dist: ${camDist.toExponential(2)}  ·  ` +
+    `tori built: ${TORI.length}`;
+
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  labelRenderer.setSize(innerWidth, innerHeight);
+});
+
+// =============================================================
+//   Buttons
+// =============================================================
+const btnIn    = document.getElementById('b-in');
+const btnPause = document.getElementById('b-pause');
+const btnOut   = document.getElementById('b-out');
+const btnReset = document.getElementById('b-reset');
+
+function setDir(d) {
+  direction = d;
+  btnIn   .classList.toggle('active', d === -1);
+  btnPause.classList.toggle('active', d ===  0);
+  btnOut  .classList.toggle('active', d === +1);
+}
+
+btnIn   .addEventListener('click', () => setDir(-1));
+btnPause.addEventListener('click', () => setDir( 0));
+btnOut  .addEventListener('click', () => setDir(+1));
+btnReset.addEventListener('click', () => {
+  camera.position.copy(DEFAULT_POS);
+  controls.target.set(0, 0, 0);
+  setDir(0);
+});
+</script>
+</body>
+</html>
