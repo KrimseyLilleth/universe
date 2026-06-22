@@ -31,6 +31,29 @@
     white-space: nowrap;
     transform: translate(-50%, -100%);
   }
+  /* ---- Print/screenshot mode: white background, dark elements ---- */
+  body.bw .tlabel {
+    color: #000;
+    text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 0 4px #fff;
+  }
+  body.bw #ui {
+    background: rgba(245,245,245,0.9);
+    border-color: #bbb;
+  }
+  body.bw button {
+    background: #eee; color: #222; border-color: #bbb;
+  }
+  body.bw button.active {
+    background: #222; color: #fff; border-color: #222;
+  }
+  body.bw #status {
+    background: rgba(245,245,245,0.9);
+    color: #222;
+  }
+  body.bw .credit {
+    color: #000;
+    text-shadow: 0 1px 3px rgba(255,255,255,0.85);
+  }
 </style>
 </head>
 <body>
@@ -42,6 +65,7 @@
   <button id="b-pause" class="active">❚❚ Pause</button>
   <button id="b-out">▶ Outward</button>
   <button id="b-reset">⟲ Reset</button>
+  <button id="b-bw" title="Toggle black/white screenshot mode (B)">B/W</button>
 </div>
 <div class="credit">Krimsey Lilleth  klilleth@proton.me</div>
 
@@ -340,6 +364,40 @@ btnReset.addEventListener('click', () => {
   camera.position.copy(DEFAULT_POS);
   controls.target.set(0, 0, 0);
   setDir(0);
+});
+
+// =============================================================
+//   Black/white screenshot mode.  Toggled by the B/W button or
+//   by pressing the 'b' key.  Inverts the page colour scheme and
+//   recolours every torus material to dark grey so the figure
+//   reads cleanly when pasted into a print document.
+// =============================================================
+let bwMode = false;
+const BW_SCENE_BG  = new THREE.Color(0xffffff);
+const DARK_SCENE_BG = new THREE.Color(0x0a0a0a);
+const BW_COLOR     = 0x222222;   // dark grey for tori in print mode
+
+function setBWMode(on) {
+  bwMode = on;
+  document.body.classList.toggle('bw', on);
+  scene.background = on ? BW_SCENE_BG : DARK_SCENE_BG;
+
+  // Recolour every material in every torus.
+  for (const t of TORI) {
+    t.group.traverse((child) => {
+      if (!child.material || !child.material.color) return;
+      if (child.userData.origColor === undefined) {
+        child.userData.origColor = child.material.color.getHex();
+      }
+      child.material.color.setHex(on ? BW_COLOR : child.userData.origColor);
+    });
+  }
+}
+
+document.getElementById('b-bw').addEventListener('click', () => setBWMode(!bwMode));
+window.addEventListener('keydown', (e) => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  if (e.key === 'b' || e.key === 'B') setBWMode(!bwMode);
 });
 
 // Auto-start the eternal outward zoom on page load.
