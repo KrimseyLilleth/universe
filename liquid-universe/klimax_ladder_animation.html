@@ -249,6 +249,74 @@ for (let L = -50; L <= 50; L++) {
 }
 
 // =============================================================
+//   Mini Klimax torus — top-right corner.  A separate scene and
+//   renderer (alpha:true so the page background shows through),
+//   rotating around a tilted axis as a decorative widget.
+// =============================================================
+const MINI_SIZE = 200;
+const miniRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+miniRenderer.setSize(MINI_SIZE, MINI_SIZE);
+miniRenderer.setPixelRatio(devicePixelRatio);
+miniRenderer.domElement.style.position = 'fixed';
+miniRenderer.domElement.style.top    = '18px';
+miniRenderer.domElement.style.right  = '18px';
+miniRenderer.domElement.style.zIndex = '15';
+miniRenderer.domElement.style.pointerEvents = 'none';
+document.body.appendChild(miniRenderer.domElement);
+
+const miniScene = new THREE.Scene();
+miniScene.background = null;
+
+const miniCam = new THREE.PerspectiveCamera(40, 1, 0.01, 100);
+miniCam.position.set(3.0, 2.4, 4.0);
+miniCam.lookAt(0, 0, 0);
+
+miniScene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const miniDL = new THREE.DirectionalLight(0xffffff, 0.85);
+miniDL.position.set(4, 5, 3);
+miniScene.add(miniDL);
+
+const miniGroup = new THREE.Group();
+miniScene.add(miniGroup);
+
+{
+  const r = 0.55, R = PHI * r, c = 0xc39bff;
+  // Surface
+  const surfMat = new THREE.MeshPhongMaterial({
+    color: c, transparent: true, opacity: 0.45,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  const surf = new THREE.Mesh(new THREE.TorusGeometry(R, r, 28, 80), surfMat);
+  miniGroup.add(surf);
+  // Spine (thin solid ring)
+  const spineMat = new THREE.MeshBasicMaterial({ color: c });
+  const spine = new THREE.Mesh(new THREE.TorusGeometry(R, 0.025, 6, 64), spineMat);
+  miniGroup.add(spine);
+  // A few subtle grid lines so it reads as a torus shape, not a blob
+  const gridMat = new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: 0.55 });
+  for (let i = 0; i < 8; i++) {
+    const u = i / 8 * Math.PI * 2, cu = Math.cos(u), su = Math.sin(u);
+    const pts = [];
+    for (let j = 0; j <= 32; j++) {
+      const v = j / 32 * Math.PI * 2;
+      const cv = Math.cos(v), sv = Math.sin(v);
+      const rr = R + r * cv;
+      pts.push(new THREE.Vector3(rr * cu, r * sv, rr * su));
+    }
+    miniGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat));
+  }
+}
+
+// Pre-tilt the torus group so its symmetry axis isn't vertical —
+// this gives the rotation a more interesting 3D feel.
+miniGroup.rotation.x = 0.45;
+miniGroup.rotation.z = 0.25;
+
+// Rotate about a tilted axis (mostly the torus axis, slightly leaned).
+const miniSpin = new THREE.Vector3(0.25, 1.0, 0.15).normalize();
+const MINI_RATE = 0.012;   // radians per frame ~ 0.7 rad/s
+
+// =============================================================
 //   Zoom + fade
 // =============================================================
 const BASE_DIST   = camera.position.distanceTo(controls.target);
@@ -331,6 +399,11 @@ function tick() {
 
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
+
+  // Mini Klimax torus in the corner — rotate and render
+  miniGroup.rotateOnAxis(miniSpin, MINI_RATE);
+  miniRenderer.render(miniScene, miniCam);
+
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
@@ -392,6 +465,14 @@ function setBWMode(on) {
       child.material.color.setHex(on ? BW_COLOR : child.userData.origColor);
     });
   }
+  // Same treatment for the mini torus in the corner.
+  miniGroup.traverse((child) => {
+    if (!child.material || !child.material.color) return;
+    if (child.userData.origColor === undefined) {
+      child.userData.origColor = child.material.color.getHex();
+    }
+    child.material.color.setHex(on ? BW_COLOR : child.userData.origColor);
+  });
 }
 
 document.getElementById('b-bw').addEventListener('click', () => setBWMode(!bwMode));
