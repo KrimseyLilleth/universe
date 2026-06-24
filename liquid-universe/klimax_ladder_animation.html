@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <title>Klimax — minimal zoom with fade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; padding: 0; background: #0a0a0a; color: #eee;
+  html, body { margin: 0; padding: 0; background: #08001a; color: #eee;
                font-family: sans-serif; overflow: hidden; height: 100%; }
   #c { position: fixed; inset: 0; }
   #ui { position: fixed; bottom: 16px; left: 16px; z-index: 10;
@@ -12,15 +15,25 @@
         border-radius: 6px; padding: 12px; }
   button { padding: 6px 12px; margin: 0 3px; background: #333; color: #eee;
            border: 1px solid #555; border-radius: 4px; cursor: pointer;
-           font-size: 13px; }
+           font-family: inherit; font-size: 13px; }
   button.active { background: #ff9933; color: #000; border-color: #ff9933; }
-  #status { position: fixed; top: 16px; left: 16px; z-index: 10;
-            font-family: monospace; font-size: 13px; color: #ccc;
-            background: rgba(20,20,25,0.85); padding: 8px 12px;
-            border-radius: 5px; }
-  .credit { position: fixed; bottom: 10px; right: 14px;
-            font-size: 13px; font-weight: 600; color: #fff;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  /* Status moved to top-right and made unobtrusive — the top-left
+     real estate is taken by the title block now. */
+  #status { position: fixed; top: 16px; right: 16px; z-index: 10;
+            font-family: monospace; font-size: 11px; color: #aaa;
+            background: rgba(20,20,25,0.7); padding: 5px 9px;
+            border-radius: 4px; }
+  /* Title block: paper-style title in top-left with the author name
+     and email stacked below.  Same font as the buttons; name + email
+     are 15px (2 pt larger than the 13px button text). */
+  #title-block { position: fixed; top: 18px; left: 18px; z-index: 10;
+                 font-family: inherit; color: #fff;
+                 text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
+  #title-block h1 { margin: 0 0 6px 0; font-size: 24px; font-weight: 700;
+                    font-family: 'Orbitron', sans-serif;
+                    letter-spacing: 1.5px; text-transform: uppercase; }
+  #title-block .name  { font-size: 15px; font-weight: 400; line-height: 1.35; }
+  #title-block .email { font-size: 15px; font-weight: 400; opacity: 0.92; }
   .tlabel {
     color: #fff;
     font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
@@ -50,15 +63,42 @@
     background: rgba(245,245,245,0.9);
     color: #222;
   }
-  body.bw .credit {
+  body.bw #title-block {
     color: #000;
     text-shadow: 0 1px 3px rgba(255,255,255,0.85);
   }
+  /* ---- Dynamic phi-ladder HUD on the right edge of the screen ----
+     Translates each frame so the current torus's spine rung sits at
+     vertical centre.  The mask-image gives a soft top/bottom fade so
+     rungs visually "appear" and "disappear" off the screen edges as
+     the ladder climbs.                                              */
+  #ladder-wrap {
+    position: fixed; top: 0; right: 0;
+    width: 135px; height: 100vh; z-index: 4;
+    pointer-events: none;
+    background: linear-gradient(to left,
+      rgba(8,0,26,0.85) 35%, rgba(8,0,26,0) 100%);
+    -webkit-mask-image: linear-gradient(to bottom,
+      transparent 0%, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to bottom,
+      transparent 0%, #000 12%, #000 88%, transparent 100%);
+  }
+  body.bw #ladder-wrap {
+    background: linear-gradient(to left,
+      rgba(245,245,245,0.9) 35%, rgba(245,245,245,0) 100%);
+  }
+  #ladder-svg { width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
 
 <div id="c"></div>
+<div id="title-block">
+  <h1>The Klimax Torus Ladder</h1>
+  <div class="name">Krimsey Lilleth</div>
+  <div class="email">klilleth@proton.me</div>
+</div>
+<div id="ladder-wrap"></div>
 <div id="status">Initialising…</div>
 <div id="ui">
   <button id="b-in">◀ Inward</button>
@@ -66,8 +106,9 @@
   <button id="b-out">▶ Outward</button>
   <button id="b-reset">⟲ Reset</button>
   <button id="b-bw" title="Toggle black/white screenshot mode (B)">B/W</button>
+  <button id="b-overhead" title="Toggle overhead single-torus view (O)">Overhead</button>
+  <button id="b-music" title="Toggle synthwave music (M)">♪ Music</button>
 </div>
-<div class="credit">Krimsey Lilleth  klilleth@proton.me</div>
 
 <script type="importmap">
 {
@@ -90,7 +131,7 @@ const LOG_PHI3 = Math.log(PHI3);
 //   scene
 // =============================================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a0a);
+scene.background = new THREE.Color(0x08001a);   // deep synthwave night
 
 const camera = new THREE.PerspectiveCamera(
   60, innerWidth / innerHeight, 0.01, 1e10
@@ -126,7 +167,18 @@ controls.target.set(0, 0, 0);
 //   Torus factory.  Returns an object with a fade(f) method that
 //   scales opacity of every material in the torus by f.
 // =============================================================
-const COLORS = [0xc39bff, 0x5fa8d3, 0xff9933, 0x33cc66, 0xffd35e, 0xff66cc, 0x66ddff];
+// 80s synthwave / Tron-style neon palette: hot magenta, electric cyan,
+// vivid purple, screaming yellow, sunset orange, lime, hot pink.  These
+// pop hard against a dark background and screenshot well for web/social.
+const COLORS = [
+  0xff10c0,   // hot magenta
+  0x00f0ff,   // electric cyan
+  0xa020ff,   // electric purple
+  0xfff200,   // screaming yellow
+  0xff7a00,   // sunset orange
+  0x3cff5e,   // neon lime
+  0xff3c8a,   // hot pink
+];
 
 function buildTorus(L) {
   const rTube = Math.pow(PHI, 3 * L);
@@ -249,72 +301,331 @@ for (let L = -50; L <= 50; L++) {
 }
 
 // =============================================================
-//   Mini Klimax torus — top-right corner.  A separate scene and
-//   renderer (alpha:true so the page background shows through),
-//   rotating around a tilted axis as a decorative widget.
+//   Dynamic phi-ladder HUD on the right edge of the screen.
+//   Each integer power of phi gets a coloured rung; consecutive
+//   triples (k = 3L, 3L+1, 3L+2) share the colour of their owning
+//   torus T_L, and the contact rungs (k ≡ 2 mod 3) carry a diamond.
+//   Each frame the whole ladder translates so the spine of the
+//   current torus sits at vertical centre; opacity falls off with
+//   k-distance so new rungs "light up" at the top and old ones
+//   fade out the bottom as the zoom climbs.
 // =============================================================
-const MINI_SIZE = 200;
-const miniRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-miniRenderer.setSize(MINI_SIZE, MINI_SIZE);
-miniRenderer.setPixelRatio(devicePixelRatio);
-miniRenderer.domElement.style.position = 'fixed';
-miniRenderer.domElement.style.top    = '18px';
-miniRenderer.domElement.style.right  = '18px';
-miniRenderer.domElement.style.zIndex = '15';
-miniRenderer.domElement.style.pointerEvents = 'none';
-document.body.appendChild(miniRenderer.domElement);
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(name, attrs = {}) {
+  const el = document.createElementNS(SVG_NS, name);
+  for (const a in attrs) el.setAttribute(a, attrs[a]);
+  return el;
+}
 
-const miniScene = new THREE.Scene();
-miniScene.background = null;
+const ladderWrap = document.getElementById('ladder-wrap');
+const ladderSvg  = svgEl('svg', { id: 'ladder-svg' });
+ladderWrap.appendChild(ladderSvg);
 
-const miniCam = new THREE.PerspectiveCamera(40, 1, 0.01, 100);
-miniCam.position.set(3.0, 2.4, 4.0);
-miniCam.lookAt(0, 0, 0);
+const ladderG = svgEl('g');
+ladderSvg.appendChild(ladderG);
 
-miniScene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const miniDL = new THREE.DirectionalLight(0xffffff, 0.85);
-miniDL.position.set(4, 5, 3);
-miniScene.add(miniDL);
+// Layout constants — SVG-pixel units, matching viewBox set in fitLadder().
+const RAIL_L      = 58;        // left rail x
+const RAIL_R      = 110;       // right rail x
+const LAD_SPACING = 34;        // pixels between consecutive rungs
 
-const miniGroup = new THREE.Group();
-miniScene.add(miniGroup);
+// Build everything from k = K_MIN..K_MAX once.  Range covers the
+// full LIMIT = 47 zoom (centerK reaches 3*47+1 = 142) with buffer.
+const LAD_K_MIN = -160, LAD_K_MAX = 160;
 
-{
-  const r = 0.55, R = PHI * r, c = 0xc39bff;
-  // Surface
-  const surfMat = new THREE.MeshPhongMaterial({
-    color: c, transparent: true, opacity: 0.45,
-    side: THREE.DoubleSide, depthWrite: false,
+// Long static rails (kept in the translated group so they scroll
+// with the rungs — but they're long enough to look infinite).
+const railL = svgEl('line', {
+  x1: RAIL_L, x2: RAIL_L,
+  y1: -LAD_K_MAX * LAD_SPACING - 200, y2: -LAD_K_MIN * LAD_SPACING + 200,
+  stroke: '#888', 'stroke-width': 2, 'stroke-linecap': 'round',
+});
+const railR = svgEl('line', {
+  x1: RAIL_R, x2: RAIL_R,
+  y1: -LAD_K_MAX * LAD_SPACING - 200, y2: -LAD_K_MIN * LAD_SPACING + 200,
+  stroke: '#888', 'stroke-width': 2, 'stroke-linecap': 'round',
+});
+ladderG.appendChild(railL);
+ladderG.appendChild(railR);
+const ladderRails = [railL, railR];
+
+// Per-rung structures we update each frame.
+const ladderRungs = [];   // { k, g, rung, label, diamond?, baseHex }
+
+for (let k = LAD_K_MIN; k <= LAD_K_MAX; k++) {
+  const L = Math.floor(k / 3);
+  const hex = COLORS[((L % COLORS.length) + COLORS.length) % COLORS.length];
+  const hexStr = '#' + hex.toString(16).padStart(6, '0');
+  const y = -k * LAD_SPACING;
+  const isContact = ((k % 3) + 3) % 3 === 2;
+
+  const g = svgEl('g');
+  g.style.opacity = '0';   // start hidden until first tick() updates
+
+  const rung = svgEl('line', {
+    x1: RAIL_L, x2: RAIL_R, y1: y, y2: y,
+    stroke: hexStr, 'stroke-width': 7, 'stroke-linecap': 'round',
   });
-  const surf = new THREE.Mesh(new THREE.TorusGeometry(R, r, 28, 80), surfMat);
-  miniGroup.add(surf);
-  // Spine (thin solid ring)
-  const spineMat = new THREE.MeshBasicMaterial({ color: c });
-  const spine = new THREE.Mesh(new THREE.TorusGeometry(R, 0.025, 6, 64), spineMat);
-  miniGroup.add(spine);
-  // A few subtle grid lines so it reads as a torus shape, not a blob
-  const gridMat = new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: 0.55 });
-  for (let i = 0; i < 8; i++) {
-    const u = i / 8 * Math.PI * 2, cu = Math.cos(u), su = Math.sin(u);
-    const pts = [];
-    for (let j = 0; j <= 32; j++) {
-      const v = j / 32 * Math.PI * 2;
-      const cv = Math.cos(v), sv = Math.sin(v);
-      const rr = R + r * cv;
-      pts.push(new THREE.Vector3(rr * cu, r * sv, rr * su));
+  g.appendChild(rung);
+
+  // φ-power label, just left of the left rail.  Use a tspan for the
+  // exponent so it sits as a true superscript.
+  const label = svgEl('text', {
+    x: RAIL_L - 8, y: y + 5,
+    'font-family': '"Cambria Math","STIX Two Math","Times New Roman",serif',
+    'font-size': 15, 'font-style': 'italic', 'font-weight': 600,
+    fill: hexStr, 'text-anchor': 'end',
+  });
+  label.innerHTML = `&#966;<tspan dy="-6" font-size="11">${k}</tspan>`;
+  g.appendChild(label);
+
+  let diamond = null;
+  if (isContact) {
+    const cx = (RAIL_L + RAIL_R) / 2;
+    diamond = svgEl('polygon', {
+      points: `${cx-6},${y} ${cx},${y-7} ${cx+6},${y} ${cx},${y+7}`,
+      fill: '#111', stroke: hexStr, 'stroke-width': 1.5,
+    });
+    g.appendChild(diamond);
+  }
+
+  ladderG.appendChild(g);
+  ladderRungs.push({ k, g, rung, label, diamond, baseHex: hexStr });
+}
+
+function fitLadder() {
+  const w = ladderWrap.clientWidth;
+  const h = ladderWrap.clientHeight;
+  ladderSvg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+}
+fitLadder();
+addEventListener('resize', fitLadder);
+
+// Update is called each frame from tick() with the current zoom level.
+const LAD_FADE_INNER = 6;    // |Δk| <= this -> fully bright
+const LAD_FADE_OUTER = 16;   // |Δk| >= this -> invisible
+function updateLadder(currentLevel) {
+  const h = ladderWrap.clientHeight;
+  const centerY = h / 2;
+  const centerK = 3 * currentLevel + 1;   // spine of current torus
+  const offsetY = centerY + centerK * LAD_SPACING;
+  ladderG.setAttribute('transform', `translate(0, ${offsetY})`);
+
+  for (const r of ladderRungs) {
+    const dk = Math.abs(r.k - centerK);
+    let op;
+    if (dk >= LAD_FADE_OUTER)      op = 0;
+    else if (dk <= LAD_FADE_INNER) op = 1;
+    else {
+      const x = 1 - (dk - LAD_FADE_INNER) / (LAD_FADE_OUTER - LAD_FADE_INNER);
+      op = x * x * (3 - 2 * x);            // smoothstep
     }
-    miniGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat));
+    r.g.style.opacity = op.toFixed(3);
   }
 }
 
-// Pre-tilt the torus group so its symmetry axis isn't vertical —
-// this gives the rotation a more interesting 3D feel.
-miniGroup.rotation.x = 0.45;
-miniGroup.rotation.z = 0.25;
+// =============================================================
+//   Overhead view: a single Klimax torus seen from above with R/r
+//   dimension arrows.  Toggled by the "Overhead" button or 'o' key.
+//   In overhead mode the chain is hidden and the camera locks to a
+//   top-down view of one isolated torus, suitable for a paper figure.
+// =============================================================
+const overheadGroup = new THREE.Group();
+scene.add(overheadGroup);
+overheadGroup.visible = false;
 
-// Rotate about a tilted axis (mostly the torus axis, slightly leaned).
-const miniSpin = new THREE.Vector3(0.25, 1.0, 0.15).normalize();
-const MINI_RATE = 0.012;   // radians per frame ~ 0.7 rad/s
+let overheadMode = false;
+let savedCamPos  = null;
+let savedCamUp   = null;
+let savedTarget  = null;
+
+// We'll need to restyle the R / r CSS labels when entering/leaving
+// black-and-white mode, so track each one with its colour and glow.
+const overheadLabels = [];   // { div, neonColor, neonGlow }
+
+function neonGlow(hexColor) {
+  const c = '#' + hexColor.toString(16).padStart(6, '0');
+  return `0 0 4px ${c}, 0 0 8px ${c}, 0 0 14px ${c}`;
+}
+
+{
+  const r = 1, R = PHI * r;
+
+  // ---- Synthwave palette, matched to the chain animation ----
+  const COL_FILL   = 0xa020ff;   // electric purple — faint torus surface
+  const COL_WIRE   = 0x00f0ff;   // electric cyan   — wireframe parallels + meridians
+  const COL_SPINE  = 0xfff200;   // screaming yellow — major-circle spine
+  const COL_R      = 0xff7a00;   // sunset orange   — R arrow
+  const COL_r      = 0xff10c0;   // hot magenta     — r arrow
+
+  function addWire(line) { line.userData.bwLight = true; overheadGroup.add(line); }
+
+  // ---- Faint 3D surface (TorusGeometry, lying in the XZ plane).
+  //      Built as an actual torus so the figure reads as a 3D donut
+  //      when the user spins the camera with the mouse. ----
+  const surfGeom = new THREE.TorusGeometry(R, r, 32, 96);
+  surfGeom.rotateX(Math.PI / 2);
+  const surfMat = new THREE.MeshBasicMaterial({
+    color: COL_FILL, side: THREE.DoubleSide,
+    transparent: true, opacity: 0.18, depthWrite: false,
+  });
+  overheadGroup.add(new THREE.Mesh(surfGeom, surfMat));
+
+  // ---- 6 parallels — toroidal circles at constant poloidal angle v.
+  //      Their radial radii at different v give the four-ring "concentric"
+  //      look when seen from above; their vertical offsets give depth
+  //      when seen from the side. ----
+  for (let p = 0; p < 6; p++) {
+    const v = (p / 6) * Math.PI * 2;
+    const cv = Math.cos(v), sv = Math.sin(v);
+    const ringR = R + r * cv;
+    const h = r * sv;
+    const pts = [];
+    for (let i = 0; i <= 128; i++) {
+      const a = (i / 128) * Math.PI * 2;
+      pts.push(new THREE.Vector3(ringR * Math.cos(a), h, ringR * Math.sin(a)));
+    }
+    const opacity = (p === 0 || p === 3) ? 0.85 : 0.35;
+    const mat = new THREE.LineBasicMaterial({
+      color: COL_WIRE, transparent: true, opacity, depthWrite: false,
+    });
+    addWire(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+  }
+
+  // ---- 12 meridians — poloidal circles at constant toroidal angle u,
+  //      each a small circle around the tube cross-section.  These are
+  //      what give the torus its "3D ribbed donut" look when the camera
+  //      is rotated. ----
+  for (let m = 0; m < 12; m++) {
+    const u = (m / 12) * Math.PI * 2;
+    const cu = Math.cos(u), su = Math.sin(u);
+    const pts = [];
+    for (let j = 0; j <= 48; j++) {
+      const v = (j / 48) * Math.PI * 2;
+      const cv = Math.cos(v), sv = Math.sin(v);
+      const ringR = R + r * cv;
+      pts.push(new THREE.Vector3(ringR * cu, r * sv, ringR * su));
+    }
+    const mat = new THREE.LineBasicMaterial({
+      color: COL_WIRE, transparent: true, opacity: 0.45, depthWrite: false,
+    });
+    addWire(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+  }
+
+  // ---- Dashed spine — the major circle in the equatorial plane ----
+  {
+    const pts = [];
+    for (let i = 0; i <= 160; i++) {
+      const a = (i / 160) * Math.PI * 2;
+      pts.push(new THREE.Vector3(R * Math.cos(a), 0, R * Math.sin(a)));
+    }
+    const mat = new THREE.LineDashedMaterial({
+      color: COL_SPINE, dashSize: 0.16, gapSize: 0.11,
+      transparent: true, opacity: 0.95, depthWrite: false,
+    });
+    const spine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+    spine.computeLineDistances();
+    overheadGroup.add(spine);
+  }
+
+  // Center marker
+  const center = new THREE.Mesh(
+    new THREE.SphereGeometry(0.06, 16, 16),
+    new THREE.MeshBasicMaterial({ color: COL_WIRE })
+  );
+  overheadGroup.add(center);
+
+  // R arrow: neon orange, origin to spine (equatorial plane)
+  const RArrow = new THREE.ArrowHelper(
+    new THREE.Vector3(1, 0, 0),
+    new THREE.Vector3(0, 0.02, 0),
+    R, COL_R, 0.18, 0.10
+  );
+  overheadGroup.add(RArrow);
+
+  // r arrow: hot magenta, spine to outer rim (equatorial plane)
+  const rArrow = new THREE.ArrowHelper(
+    new THREE.Vector3(1, 0, 0),
+    new THREE.Vector3(R, 0.02, 0),
+    r, COL_r, 0.15, 0.09
+  );
+  overheadGroup.add(rArrow);
+
+  // ---- R label (italic, neon-glowing).
+  //      CSS2DRenderer rewrites style.display every frame based on the
+  //      CSS2DObject's OWN .visible (it doesn't check parent
+  //      visibility), so we set .visible = false at creation and let
+  //      setOverheadMode flip it on / off.
+  const RDiv = document.createElement('div');
+  RDiv.textContent = 'R';
+  RDiv.style.cssText =
+    'color:#ffba66; font:700 italic 28px "Cambria Math","STIX Two Math",serif;' +
+    'text-shadow: ' + neonGlow(COL_R) + ';' +
+    'transform: translate(-50%, -120%);';
+  const RLabel = new CSS2DObject(RDiv);
+  RLabel.position.set(R / 2, 0.05, 0);
+  RLabel.visible = false;
+  overheadGroup.add(RLabel);
+  overheadLabels.push({ obj: RLabel, div: RDiv, neonColor: '#ffba66', neonShadow: neonGlow(COL_R) });
+
+  // ---- r label ----
+  const rDiv = document.createElement('div');
+  rDiv.textContent = 'r';
+  rDiv.style.cssText =
+    'color:#ff8de0; font:700 italic 26px "Cambria Math","STIX Two Math",serif;' +
+    'text-shadow: ' + neonGlow(COL_r) + ';' +
+    'transform: translate(-50%, -120%);';
+  const rLabel = new CSS2DObject(rDiv);
+  rLabel.position.set(R + r / 2, 0.05, 0);
+  rLabel.visible = false;
+  overheadGroup.add(rLabel);
+  overheadLabels.push({ obj: rLabel, div: rDiv, neonColor: '#ff8de0', neonShadow: neonGlow(COL_r) });
+}
+
+function setOverheadMode(on) {
+  overheadMode = on;
+  document.getElementById('b-overhead').classList.toggle('active', on);
+
+  if (on) {
+    // Pause the chain animation and stash camera state for restore.
+    setDir(0);
+    savedCamPos = camera.position.clone();
+    savedCamUp  = camera.up.clone();
+    savedTarget = controls.target.clone();
+
+    // Hide every chain torus (and its labels via the fade hook).
+    for (const t of TORI) t.fade(0);
+
+    // Show the overhead widget.  Start the camera slightly tilted from
+    // straight overhead so the user immediately sees both the R / r
+    // arrows in the equatorial plane AND the 3D donut shape — and so
+    // OrbitControls can rotate freely with no top/bottom singularity.
+    overheadGroup.visible = true;
+    camera.up.set(0, 1, 0);
+    camera.position.set(1.2, 4.8, 1.4);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    // Show the R / r dimension labels (toggle the CSS2DObject's own
+    // visibility — the renderer only checks that, not the div style).
+    for (const lbl of overheadLabels) lbl.obj.visible = true;
+
+    // Hide the status bar so the screenshot is clean
+    statusEl.style.display = 'none';
+  } else {
+    overheadGroup.visible = false;
+    // Hide the R / r dimension labels so they never bleed into the
+    // chain animation.  Same rule — toggle the CSS2DObject's own
+    // visibility so the renderer doesn't override us.
+    for (const lbl of overheadLabels) lbl.obj.visible = false;
+    if (savedCamPos)  camera.position.copy(savedCamPos);
+    if (savedCamUp)   camera.up.copy(savedCamUp);
+    if (savedTarget)  controls.target.copy(savedTarget);
+    controls.update();
+    statusEl.style.display = '';
+    setDir(+1);
+  }
+}
 
 // =============================================================
 //   Zoom + fade
@@ -324,6 +635,21 @@ const WINDOW_HALF = 2.5;            // levels of fade window each side
 let   direction   = 0;              // -1, 0, +1
 const speed       = 0.5;            // levels/sec at full pace
 let   lastT       = performance.now();
+
+// Cinematic-orbit timing: orbit kicks in 4 s after page load so the
+// viewer first sees the chain head-on, then the tumble begins.
+const PAGE_LOAD_TIME  = performance.now();
+const ORBIT_DELAY_MS  = 4000;
+// 3D tumble that "moves all over" — like a proton spinning on a
+// tilted axis where the axis itself precesses around vertical.  Two
+// phi-related rates: the spin around the current axis, and the slower
+// precession of the axis itself.  Net effect is a Spirograph-like 3D
+// path on the camera sphere instead of one fixed circle.
+const SPIN_RATE          = 0.40;                 // rad/s — visible spin
+const PRECESSION_RATE    = SPIN_RATE / PHI;      // ~0.247 rad/s — phi-related
+const TILT_FROM_VERTICAL = Math.atan(PHI);       // ~58.3° — golden inclination
+const ORBIT_AXIS = new THREE.Vector3();
+const ORBIT_QUAT = new THREE.Quaternion();
 
 // Eternal oscillation parameters.  When the zoom approaches LIMIT in
 // the current direction, the effective speed smoothstep-ramps down to
@@ -340,7 +666,14 @@ function tick() {
   const dt  = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
 
-  if (direction !== 0) {
+  // ---- Cinematic motion ----------------------------------------
+  // No speed modulation: zoom runs at the constant rate, slowing only
+  // at the chain limits (handled below by the smoothstep `sf`).  After
+  // a 4-second pause from page load, the precessing 3D tumble kicks in
+  // (handled further down in this tick, after the controls update).
+  const sincePageLoad = now - PAGE_LOAD_TIME;
+
+  if (direction !== 0 && !overheadMode) {
     // currentLevel from the camera distance BEFORE moving this frame
     const dPre = camera.position.distanceTo(controls.target);
     const lvl  = Math.log(dPre / BASE_DIST) / LOG_PHI3;
@@ -371,6 +704,26 @@ function tick() {
     }
   }
 
+  // 3D tumble (chain mode only, after the 4-second startup hold, and
+  // only while the zoom is actually playing — Pause stops the rotation
+  // too).  The rotation axis itself precesses around vertical at
+  // PRECESSION_RATE while the camera spins around it at SPIN_RATE.
+  // Only the camera position rotates; up stays (0,1,0), so the rig
+  // wobbles around the equatorial plane instead of flipping upside down.
+  if (!overheadMode && direction !== 0 && sincePageLoad >= ORBIT_DELAY_MS) {
+    const t = (sincePageLoad - ORBIT_DELAY_MS) / 1000;
+    const precessAng = t * PRECESSION_RATE;
+    ORBIT_AXIS.set(
+      Math.sin(TILT_FROM_VERTICAL) * Math.cos(precessAng),
+      Math.cos(TILT_FROM_VERTICAL),
+      Math.sin(TILT_FROM_VERTICAL) * Math.sin(precessAng)
+    ).normalize();
+    ORBIT_QUAT.setFromAxisAngle(ORBIT_AXIS, SPIN_RATE * dt);
+    const offset = camera.position.clone().sub(controls.target);
+    offset.applyQuaternion(ORBIT_QUAT);
+    camera.position.copy(controls.target).add(offset);
+  }
+
   controls.update();
 
   // Adapt near/far each frame
@@ -382,8 +735,10 @@ function tick() {
   // currentLevel = log_phi^3 (camDist / BASE_DIST)
   const currentLevel = Math.log(camDist / BASE_DIST) / LOG_PHI3;
 
-  // Fade every torus based on distance from current level
+  // Fade every torus based on distance from current level.
+  // In overhead mode every chain torus stays hidden.
   for (const t of TORI) {
+    if (overheadMode) { t.fade(0); continue; }
     const d = Math.abs(t.L - currentLevel);
     if (d >= WINDOW_HALF) {
       t.fade(0);                         // off
@@ -393,17 +748,20 @@ function tick() {
     }
   }
 
+  // Phi-ladder HUD scrolls with the zoom (hidden in overhead mode).
+  if (!overheadMode) {
+    if (ladderWrap.style.display === 'none') ladderWrap.style.display = '';
+    updateLadder(currentLevel);
+  } else if (ladderWrap.style.display !== 'none') {
+    ladderWrap.style.display = 'none';
+  }
+
   statusEl.textContent =
     `level: ${currentLevel.toFixed(2)}  ·  cam dist: ${camDist.toExponential(2)}  ·  ` +
     `tori built: ${TORI.length}`;
 
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
-
-  // Mini Klimax torus in the corner — rotate and render
-  miniGroup.rotateOnAxis(miniSpin, MINI_RATE);
-  miniRenderer.render(miniScene, miniCam);
-
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
@@ -447,8 +805,9 @@ btnReset.addEventListener('click', () => {
 // =============================================================
 let bwMode = false;
 const BW_SCENE_BG  = new THREE.Color(0xffffff);
-const DARK_SCENE_BG = new THREE.Color(0x0a0a0a);
-const BW_COLOR     = 0x222222;   // dark grey for tori in print mode
+const DARK_SCENE_BG = new THREE.Color(0x08001a);
+const BW_COLOR       = 0x222222;   // dark grey for tori in print mode
+const BW_LIGHT_COLOR = 0x888888;   // lighter grey for overhead wireframe
 
 function setBWMode(on) {
   bwMode = on;
@@ -465,20 +824,77 @@ function setBWMode(on) {
       child.material.color.setHex(on ? BW_COLOR : child.userData.origColor);
     });
   }
-  // Same treatment for the mini torus in the corner.
-  miniGroup.traverse((child) => {
+  // Same treatment for the overhead-view widget.  Wireframe lines
+  // (parallels + meridians) use a lighter grey so the figure stays
+  // readable against the white print background.
+  overheadGroup.traverse((child) => {
     if (!child.material || !child.material.color) return;
     if (child.userData.origColor === undefined) {
       child.userData.origColor = child.material.color.getHex();
     }
-    child.material.color.setHex(on ? BW_COLOR : child.userData.origColor);
+    const bw = child.userData.bwLight ? BW_LIGHT_COLOR : BW_COLOR;
+    child.material.color.setHex(on ? bw : child.userData.origColor);
   });
+
+  // Switch the overhead R / r CSS labels into grayscale too.
+  for (const lbl of overheadLabels) {
+    if (on) {
+      lbl.div.style.color = '#222';
+      lbl.div.style.textShadow = '0 0 4px #fff, 0 0 8px #fff';
+    } else {
+      lbl.div.style.color = lbl.neonColor;
+      lbl.div.style.textShadow = lbl.neonShadow;
+    }
+  }
+
+  // Phi-ladder HUD: rails + rungs + labels switch to dark grey on white.
+  const railColor = on ? '#444' : '#888';
+  for (const rail of ladderRails) rail.setAttribute('stroke', railColor);
+  for (const r of ladderRungs) {
+    const c = on ? '#222' : r.baseHex;
+    r.rung.setAttribute('stroke', c);
+    r.label.setAttribute('fill', c);
+    if (r.diamond) {
+      r.diamond.setAttribute('stroke', c);
+      r.diamond.setAttribute('fill', on ? '#fff' : '#111');
+    }
+  }
 }
 
 document.getElementById('b-bw').addEventListener('click', () => setBWMode(!bwMode));
+document.getElementById('b-overhead').addEventListener('click', () => setOverheadMode(!overheadMode));
+
+// =============================================================
+//   Background music — synthwave loop.  Browsers block autoplay,
+//   so this only starts when the user clicks the Music button or
+//   presses 'm'.  Hosted at the repo root so it loads from the
+//   GitHub Pages URL on the live site and from the same origin on
+//   localhost.
+// =============================================================
+const music = new Audio('lnplusmusic-synthwave-80s-retro-background-music-400483.mp3');
+music.loop   = true;
+music.volume = 0.55;
+
+const btnMusic = document.getElementById('b-music');
+function toggleMusic() {
+  if (music.paused) {
+    music.play().then(() => {
+      btnMusic.classList.add('active');
+    }).catch((err) => {
+      console.warn('Audio playback failed:', err);
+    });
+  } else {
+    music.pause();
+    btnMusic.classList.remove('active');
+  }
+}
+btnMusic.addEventListener('click', toggleMusic);
+
 window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   if (e.key === 'b' || e.key === 'B') setBWMode(!bwMode);
+  if (e.key === 'o' || e.key === 'O') setOverheadMode(!overheadMode);
+  if (e.key === 'm' || e.key === 'M') toggleMusic();
 });
 
 // Auto-start the eternal outward zoom on page load.
