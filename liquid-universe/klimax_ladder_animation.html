@@ -407,7 +407,7 @@ const LAD_FADE_OUTER = 16;   // |Δk| >= this -> invisible
 function updateLadder(currentLevel) {
   const h = ladderWrap.clientHeight;
   const centerY = h / 2;
-  const centerK = 3 * currentLevel + 1;   // spine of current torus
+  const centerK = 3 * currentLevel - 1;   // inner radius of current torus (phi^-1 for seed T_0)
   const offsetY = centerY + centerK * LAD_SPACING;
   ladderG.setAttribute('transform', `translate(0, ${offsetY})`);
 
@@ -900,5 +900,31 @@ window.addEventListener('keydown', (e) => {
 // Auto-start the eternal outward zoom on page load.
 setDir(+1);
 </script>
+<script>
+/* dashboard preview mode (?preview=1): show only the 3D scene, hide all UI chrome */
+(function(){
+  if(!new URLSearchParams(location.search).has('preview')) return;
+  function strip(){
+    var canvas=document.querySelector('canvas');
+    if(!canvas) return false;
+    var el=canvas;
+    while(el && el!==document.body && el.parentElement){
+      var sib=el.parentElement.firstElementChild;
+      while(sib){
+        if(sib!==el && sib.tagName!=='SCRIPT' && sib.tagName!=='STYLE') sib.style.display='none';
+        sib=sib.nextElementSibling;
+      }
+      el=el.parentElement;
+    }
+    document.documentElement.style.overflow='hidden';
+    document.body.style.overflow='hidden';
+    return true;
+  }
+  function tryStrip(n){ if(strip()||n<=0) return; setTimeout(function(){tryStrip(n-1);},150); }
+  if(document.readyState==='complete') tryStrip(20);
+  else window.addEventListener('load',function(){tryStrip(20);});
+})();
+</script>
+
 </body>
 </html>
