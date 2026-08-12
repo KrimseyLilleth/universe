@@ -12,7 +12,18 @@
   #c { position: fixed; inset: 0; }
   #ui { position: fixed; bottom: 16px; left: 16px; z-index: 10;
         background: rgba(20,20,25,0.85); border: 1px solid #333;
-        border-radius: 6px; padding: 12px; }
+        border-radius: 6px; padding: 12px; min-width: 380px; }
+  #ui .row + .row { margin-top: 10px; }
+  #speed-row { display: flex; align-items: center; }
+  #speed-row label { font-size: 12px; color: #ccc; margin-right: 8px;
+                     font-family: inherit; }
+  #speed-row input[type=range] {
+    flex: 1; accent-color: #ff9933; margin: 0 8px;
+  }
+  #speed-row .val { font-family: monospace; font-size: 12px; color: #ff9933;
+                    min-width: 40px; text-align: right; }
+  body.bw #speed-row label { color: #333; }
+  body.bw #speed-row .val { color: #222; }
   button { padding: 6px 12px; margin: 0 3px; background: #333; color: #eee;
            border: 1px solid #555; border-radius: 4px; cursor: pointer;
            font-family: inherit; font-size: 13px; }
@@ -101,13 +112,19 @@
 <div id="ladder-wrap"></div>
 <div id="status">Initialising…</div>
 <div id="ui">
-  <button id="b-in">◀ Inward</button>
-  <button id="b-pause" class="active">❚❚ Pause</button>
-  <button id="b-out">▶ Outward</button>
-  <button id="b-reset">⟲ Reset</button>
-  <button id="b-bw" title="Toggle black/white screenshot mode (B)">B/W</button>
-  <button id="b-overhead" title="Toggle overhead single-torus view (O)">Overhead</button>
-  <button id="b-music" title="Toggle synthwave music (M)">♪ Music</button>
+  <div class="row">
+    <button id="b-in">◀ Inward</button>
+    <button id="b-pause" class="active">❚❚ Pause</button>
+    <button id="b-out">▶ Outward</button>
+    <button id="b-reset">⟲ Reset</button>
+    <button id="b-bw" title="Toggle black/white screenshot mode (B)">B/W</button>
+    <button id="b-music" title="Toggle synthwave music (M)">♪ Music</button>
+  </div>
+  <div class="row" id="speed-row">
+    <label for="b-speed">speed</label>
+    <input id="b-speed" type="range" min="0.05" max="3" step="0.05" value="0.5">
+    <span class="val" id="b-speed-val">1.0×</span>
+  </div>
 </div>
 
 <script type="importmap">
@@ -197,15 +214,20 @@ function buildTorus(L) {
   }
 
   // Track label divs so their CSS opacity fades with the torus.
+  // Each record stores the "base exponent" of the phi power the label
+  // represents, so refreshAllLabels() can rewrite the text on the fly
+  // when the levelOffset shifts (see the infinite-loop block below).
   const trackedLabels = [];
-  function makeLabel(text, x, y, z) {
+  const labelRecords = [];   // { div, baseExp }
+  function makeLabel(baseExp, x, y, z) {
     const div = document.createElement('div');
     div.className = 'tlabel';
-    div.innerHTML = text;
+    div.innerHTML = `φ<sup>${baseExp}</sup>`;
     const obj = new CSS2DObject(div);
     obj.position.set(x, y, z);
     grp.add(obj);
     trackedLabels.push(div);
+    labelRecords.push({ div, baseExp });
   }
 
   // ---- Surface ----
@@ -253,8 +275,14 @@ function buildTorus(L) {
   // ---- Spine: thin mesh torus, always reads as a solid ring ----
   const spineMat = new THREE.MeshBasicMaterial({ color });
   track(spineMat, 1.0);
-  const spineR = Math.max(0.06, rTube * 0.008);
-  const spine = new THREE.Mesh(new THREE.TorusGeometry(RMaj, spineR, 6, 96), spineMat);
+  // Spine cross-section radius: proportional to rTube (2%) so inward
+  // tori keep the spine visually contained inside the torus.  Prior
+  // Math.max(0.06, ...) clamp made the spine larger than the actual
+  // torus for T_-2 and below, producing an oversized hexagonal shape.
+  // 32 radial segments (was 6) so the cross-section reads as circular,
+  // not hexagonal.
+  const spineR = rTube * 0.02;
+  const spine = new THREE.Mesh(new THREE.TorusGeometry(RMaj, spineR, 32, 96), spineMat);
   spine.rotation.x = Math.PI / 2;
   grp.add(spine);
 
@@ -269,16 +297,19 @@ function buildTorus(L) {
   const x_tube  = Math.pow(PHI, 3 * L);
   const x_spine = Math.pow(PHI, 3 * L + 1);
   const x_outer = Math.pow(PHI, 3 * L + 2);
-  // Offset above the equatorial plane scales with x so labels stay
-  // visually close to their ticks at all zoom levels.
-  const yOff = (x) => x * 0.06 + 0.05;
-  makeLabel(`φ<sup>${3*L}</sup>`,   x_tube,  yOff(x_tube),  0);
-  makeLabel(`φ<sup>${3*L+1}</sup>`, x_spine, yOff(x_spine), 0);
-  makeLabel(`φ<sup>${3*L+2}</sup>`, x_outer, yOff(x_outer), 0);
+  // Y-offset above the equatorial plane is PROPORTIONAL to x, so labels
+  // always sit at the same fraction of the torus size above the plane
+  // regardless of zoom level.  Previous formula had a fixed +0.05 floor
+  // that made inward-torus labels float far above the plane at deep zoom.
+  const yOff = (x) => x * 0.15;
+  makeLabel(3*L,     x_tube,  yOff(x_tube),  0);
+  makeLabel(3*L + 1, x_spine, yOff(x_spine), 0);
+  makeLabel(3*L + 2, x_outer, yOff(x_outer), 0);
 
   return {
     L,
     group: grp,
+    labelRecords,
     fade(f) {
       // f in [0, 1].  If f <= 0, hide the whole group to skip work.
       if (f <= 0.001) {
@@ -288,15 +319,26 @@ function buildTorus(L) {
       }
       grp.visible = true;
       for (const t of tracked) t.mat.opacity = t.base * f;
-      for (const div of trackedLabels) div.style.opacity = String(f);
+      // Labels fade with a much tighter curve (f^4) than the torus body.
+      // At d=0 (current torus): full opacity.
+      // At d=1 from current: f=0.648 -> label opacity 0.18 (mostly gone).
+      // At d=2 from current: f=0.104 -> label opacity 0.0001 (invisible).
+      // This prevents inward-adjacent tori's labels from cramming the
+      // center of the frame while their tori themselves stay visible.
+      const labelOp = f * f * f * f;
+      for (const div of trackedLabels) div.style.opacity = String(labelOp);
     },
   };
 }
 
-// Build a stack of tori spanning 50 levels each direction from zero,
-// so the eternal oscillation has plenty of fresh tori to fade in/out.
+// Build a stack of tori spanning a modest range each direction from zero.
+// With the infinite-loop recycling, the camera stays within a bounded
+// relative window and only |L| <= 3 are ever visible; anything past that
+// is fade-window buffer.  Keeping the range tight avoids feeding CSS2D
+// projection extreme-magnitude positions (phi^(3*50) ~ 1e31), which
+// causes label-rendering breakage at deep zoom in some browsers.
 const TORI = [];
-for (let L = -50; L <= 50; L++) {
+for (let L = -8; L <= 8; L++) {
   TORI.push(buildTorus(L));
 }
 
@@ -349,8 +391,10 @@ ladderG.appendChild(railL);
 ladderG.appendChild(railR);
 const ladderRails = [railL, railR];
 
-// Per-rung structures we update each frame.
-const ladderRungs = [];   // { k, g, rung, label, diamond?, baseHex }
+// Per-rung structures we update each frame.  `baseK` is the exponent
+// the rung was built for; the rendered label reads baseK + 3*levelOffset
+// so the ladder relabels cleanly when the infinite loop shifts.
+const ladderRungs = [];   // { baseK, g, rung, label, diamond?, baseHex }
 
 for (let k = LAD_K_MIN; k <= LAD_K_MAX; k++) {
   const L = Math.floor(k / 3);
@@ -369,7 +413,8 @@ for (let k = LAD_K_MIN; k <= LAD_K_MAX; k++) {
   g.appendChild(rung);
 
   // φ-power label, just left of the left rail.  Use a tspan for the
-  // exponent so it sits as a true superscript.
+  // exponent so it sits as a true superscript.  Text is rewritten by
+  // refreshLadderLabels() when levelOffset changes.
   const label = svgEl('text', {
     x: RAIL_L - 8, y: y + 5,
     'font-family': '"Cambria Math","STIX Two Math","Times New Roman",serif',
@@ -390,7 +435,7 @@ for (let k = LAD_K_MIN; k <= LAD_K_MAX; k++) {
   }
 
   ladderG.appendChild(g);
-  ladderRungs.push({ k, g, rung, label, diamond, baseHex: hexStr });
+  ladderRungs.push({ baseK: k, g, rung, label, diamond, baseHex: hexStr });
 }
 
 function fitLadder() {
@@ -400,6 +445,15 @@ function fitLadder() {
 }
 fitLadder();
 addEventListener('resize', fitLadder);
+
+// Rewrite every HUD rung label after a levelOffset shift.  Called from
+// refreshAllLabels() when the infinite loop crosses a whole level.
+function refreshLadderLabels() {
+  const shift = 3 * levelOffset;
+  for (const r of ladderRungs) {
+    r.label.innerHTML = `&#966;<tspan dy="-6" font-size="11">${r.baseK + shift}</tspan>`;
+  }
+}
 
 // Update is called each frame from tick() with the current zoom level.
 const LAD_FADE_INNER = 6;    // |Δk| <= this -> fully bright
@@ -412,7 +466,7 @@ function updateLadder(currentLevel) {
   ladderG.setAttribute('transform', `translate(0, ${offsetY})`);
 
   for (const r of ladderRungs) {
-    const dk = Math.abs(r.k - centerK);
+    const dk = Math.abs(r.baseK - centerK);
     let op;
     if (dk >= LAD_FADE_OUTER)      op = 0;
     else if (dk <= LAD_FADE_INNER) op = 1;
@@ -425,241 +479,55 @@ function updateLadder(currentLevel) {
 }
 
 // =============================================================
-//   Overhead view: a single Klimax torus seen from above with R/r
-//   dimension arrows.  Toggled by the "Overhead" button or 'o' key.
-//   In overhead mode the chain is hidden and the camera locks to a
-//   top-down view of one isolated torus, suitable for a paper figure.
-// =============================================================
-const overheadGroup = new THREE.Group();
-scene.add(overheadGroup);
-overheadGroup.visible = false;
-
-let overheadMode = false;
-let savedCamPos  = null;
-let savedCamUp   = null;
-let savedTarget  = null;
-
-// We'll need to restyle the R / r CSS labels when entering/leaving
-// black-and-white mode, so track each one with its colour and glow.
-const overheadLabels = [];   // { div, neonColor, neonGlow }
-
-function neonGlow(hexColor) {
-  const c = '#' + hexColor.toString(16).padStart(6, '0');
-  return `0 0 4px ${c}, 0 0 8px ${c}, 0 0 14px ${c}`;
-}
-
-{
-  const r = 1, R = PHI * r;
-
-  // ---- Synthwave palette, matched to the chain animation ----
-  const COL_FILL   = 0xa020ff;   // electric purple — faint torus surface
-  const COL_WIRE   = 0x00f0ff;   // electric cyan   — wireframe parallels + meridians
-  const COL_SPINE  = 0xfff200;   // screaming yellow — major-circle spine
-  const COL_R      = 0xff7a00;   // sunset orange   — R arrow
-  const COL_r      = 0xff10c0;   // hot magenta     — r arrow
-
-  function addWire(line) { line.userData.bwLight = true; overheadGroup.add(line); }
-
-  // ---- Faint 3D surface (TorusGeometry, lying in the XZ plane).
-  //      Built as an actual torus so the figure reads as a 3D donut
-  //      when the user spins the camera with the mouse. ----
-  const surfGeom = new THREE.TorusGeometry(R, r, 32, 96);
-  surfGeom.rotateX(Math.PI / 2);
-  const surfMat = new THREE.MeshBasicMaterial({
-    color: COL_FILL, side: THREE.DoubleSide,
-    transparent: true, opacity: 0.18, depthWrite: false,
-  });
-  overheadGroup.add(new THREE.Mesh(surfGeom, surfMat));
-
-  // ---- 6 parallels — toroidal circles at constant poloidal angle v.
-  //      Their radial radii at different v give the four-ring "concentric"
-  //      look when seen from above; their vertical offsets give depth
-  //      when seen from the side. ----
-  for (let p = 0; p < 6; p++) {
-    const v = (p / 6) * Math.PI * 2;
-    const cv = Math.cos(v), sv = Math.sin(v);
-    const ringR = R + r * cv;
-    const h = r * sv;
-    const pts = [];
-    for (let i = 0; i <= 128; i++) {
-      const a = (i / 128) * Math.PI * 2;
-      pts.push(new THREE.Vector3(ringR * Math.cos(a), h, ringR * Math.sin(a)));
-    }
-    const opacity = (p === 0 || p === 3) ? 0.85 : 0.35;
-    const mat = new THREE.LineBasicMaterial({
-      color: COL_WIRE, transparent: true, opacity, depthWrite: false,
-    });
-    addWire(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
-  }
-
-  // ---- 12 meridians — poloidal circles at constant toroidal angle u,
-  //      each a small circle around the tube cross-section.  These are
-  //      what give the torus its "3D ribbed donut" look when the camera
-  //      is rotated. ----
-  for (let m = 0; m < 12; m++) {
-    const u = (m / 12) * Math.PI * 2;
-    const cu = Math.cos(u), su = Math.sin(u);
-    const pts = [];
-    for (let j = 0; j <= 48; j++) {
-      const v = (j / 48) * Math.PI * 2;
-      const cv = Math.cos(v), sv = Math.sin(v);
-      const ringR = R + r * cv;
-      pts.push(new THREE.Vector3(ringR * cu, r * sv, ringR * su));
-    }
-    const mat = new THREE.LineBasicMaterial({
-      color: COL_WIRE, transparent: true, opacity: 0.45, depthWrite: false,
-    });
-    addWire(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
-  }
-
-  // ---- Dashed spine — the major circle in the equatorial plane ----
-  {
-    const pts = [];
-    for (let i = 0; i <= 160; i++) {
-      const a = (i / 160) * Math.PI * 2;
-      pts.push(new THREE.Vector3(R * Math.cos(a), 0, R * Math.sin(a)));
-    }
-    const mat = new THREE.LineDashedMaterial({
-      color: COL_SPINE, dashSize: 0.16, gapSize: 0.11,
-      transparent: true, opacity: 0.95, depthWrite: false,
-    });
-    const spine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
-    spine.computeLineDistances();
-    overheadGroup.add(spine);
-  }
-
-  // Center marker
-  const center = new THREE.Mesh(
-    new THREE.SphereGeometry(0.06, 16, 16),
-    new THREE.MeshBasicMaterial({ color: COL_WIRE })
-  );
-  overheadGroup.add(center);
-
-  // R arrow: neon orange, origin to spine (equatorial plane)
-  const RArrow = new THREE.ArrowHelper(
-    new THREE.Vector3(1, 0, 0),
-    new THREE.Vector3(0, 0.02, 0),
-    R, COL_R, 0.18, 0.10
-  );
-  overheadGroup.add(RArrow);
-
-  // r arrow: hot magenta, spine to outer rim (equatorial plane)
-  const rArrow = new THREE.ArrowHelper(
-    new THREE.Vector3(1, 0, 0),
-    new THREE.Vector3(R, 0.02, 0),
-    r, COL_r, 0.15, 0.09
-  );
-  overheadGroup.add(rArrow);
-
-  // ---- R label (italic, neon-glowing).
-  //      CSS2DRenderer rewrites style.display every frame based on the
-  //      CSS2DObject's OWN .visible (it doesn't check parent
-  //      visibility), so we set .visible = false at creation and let
-  //      setOverheadMode flip it on / off.
-  const RDiv = document.createElement('div');
-  RDiv.textContent = 'R';
-  RDiv.style.cssText =
-    'color:#ffba66; font:700 italic 28px "Cambria Math","STIX Two Math",serif;' +
-    'text-shadow: ' + neonGlow(COL_R) + ';' +
-    'transform: translate(-50%, -120%);';
-  const RLabel = new CSS2DObject(RDiv);
-  RLabel.position.set(R / 2, 0.05, 0);
-  RLabel.visible = false;
-  overheadGroup.add(RLabel);
-  overheadLabels.push({ obj: RLabel, div: RDiv, neonColor: '#ffba66', neonShadow: neonGlow(COL_R) });
-
-  // ---- r label ----
-  const rDiv = document.createElement('div');
-  rDiv.textContent = 'r';
-  rDiv.style.cssText =
-    'color:#ff8de0; font:700 italic 26px "Cambria Math","STIX Two Math",serif;' +
-    'text-shadow: ' + neonGlow(COL_r) + ';' +
-    'transform: translate(-50%, -120%);';
-  const rLabel = new CSS2DObject(rDiv);
-  rLabel.position.set(R + r / 2, 0.05, 0);
-  rLabel.visible = false;
-  overheadGroup.add(rLabel);
-  overheadLabels.push({ obj: rLabel, div: rDiv, neonColor: '#ff8de0', neonShadow: neonGlow(COL_r) });
-}
-
-function setOverheadMode(on) {
-  overheadMode = on;
-  document.getElementById('b-overhead').classList.toggle('active', on);
-
-  if (on) {
-    // Pause the chain animation and stash camera state for restore.
-    setDir(0);
-    savedCamPos = camera.position.clone();
-    savedCamUp  = camera.up.clone();
-    savedTarget = controls.target.clone();
-
-    // Hide every chain torus (and its labels via the fade hook).
-    for (const t of TORI) t.fade(0);
-
-    // Show the overhead widget.  Start the camera slightly tilted from
-    // straight overhead so the user immediately sees both the R / r
-    // arrows in the equatorial plane AND the 3D donut shape — and so
-    // OrbitControls can rotate freely with no top/bottom singularity.
-    overheadGroup.visible = true;
-    camera.up.set(0, 1, 0);
-    camera.position.set(1.2, 4.8, 1.4);
-    controls.target.set(0, 0, 0);
-    controls.update();
-
-    // Show the R / r dimension labels (toggle the CSS2DObject's own
-    // visibility — the renderer only checks that, not the div style).
-    for (const lbl of overheadLabels) lbl.obj.visible = true;
-
-    // Hide the status bar so the screenshot is clean
-    statusEl.style.display = 'none';
-  } else {
-    overheadGroup.visible = false;
-    // Hide the R / r dimension labels so they never bleed into the
-    // chain animation.  Same rule — toggle the CSS2DObject's own
-    // visibility so the renderer doesn't override us.
-    for (const lbl of overheadLabels) lbl.obj.visible = false;
-    if (savedCamPos)  camera.position.copy(savedCamPos);
-    if (savedCamUp)   camera.up.copy(savedCamUp);
-    if (savedTarget)  controls.target.copy(savedTarget);
-    controls.update();
-    statusEl.style.display = '';
-    setDir(+1);
-  }
-}
-
-// =============================================================
 //   Zoom + fade
 // =============================================================
 const BASE_DIST   = camera.position.distanceTo(controls.target);
 const WINDOW_HALF = 2.5;            // levels of fade window each side
 let   direction   = 0;              // -1, 0, +1
-const speed       = 0.5;            // levels/sec at full pace
+let   speed       = 0.5;            // levels/sec, controlled by slider
 let   lastT       = performance.now();
 
 // Cinematic-orbit timing: orbit kicks in 4 s after page load so the
 // viewer first sees the chain head-on, then the tumble begins.
 const PAGE_LOAD_TIME  = performance.now();
 const ORBIT_DELAY_MS  = 4000;
-// 3D tumble that "moves all over" — like a proton spinning on a
-// tilted axis where the axis itself precesses around vertical.  Two
-// phi-related rates: the spin around the current axis, and the slower
-// precession of the axis itself.  Net effect is a Spirograph-like 3D
-// path on the camera sphere instead of one fixed circle.
-const SPIN_RATE          = 0.40;                 // rad/s — visible spin
-const PRECESSION_RATE    = SPIN_RATE / PHI;      // ~0.247 rad/s — phi-related
-const TILT_FROM_VERTICAL = Math.atan(PHI);       // ~58.3° — golden inclination
+const SPIN_RATE          = 0.40;
+const PRECESSION_RATE    = SPIN_RATE / PHI;
+const TILT_FROM_VERTICAL = Math.atan(PHI);
 const ORBIT_AXIS = new THREE.Vector3();
 const ORBIT_QUAT = new THREE.Quaternion();
 
-// Eternal oscillation parameters.  When the zoom approaches LIMIT in
-// the current direction, the effective speed smoothstep-ramps down to
-// zero over SLOWDOWN levels, then direction auto-reverses.
-const LIMIT    = 47;                // |currentLevel| limit (just inside the built range)
-const SLOWDOWN = 3;                 // levels over which to slow down before LIMIT
+// =============================================================
+//   Infinite loop via level-offset recycling.
+//   Because Klimax tori are self-similar under a phi^3 rescale,
+//   we keep the camera in a bounded relative range (-1 <= lvl <= +1)
+//   and every time the camera crosses a whole-level boundary we:
+//     1. Rescale the camera position by phi^3 (or phi^-3) so it lands
+//        back inside the relative window;
+//     2. Increment/decrement `levelOffset` by 1 (tracks the number of
+//        chain steps the visualization has drifted from the physical
+//        seed torus);
+//     3. Re-label every torus and every HUD rung to reflect the new
+//        absolute powers of phi.
+//   From the viewer's perspective the zoom runs forever without any
+//   visible discontinuity — only the phi-power exponents on the labels
+//   keep climbing (or falling).
+// =============================================================
+let levelOffset = 0;                // absolute level = relative level + levelOffset
 
 const statusEl = document.getElementById('status');
 
 function smoothstep(x) { return x * x * (3 - 2 * x); }
+
+function refreshAllLabels() {
+  const shift = 3 * levelOffset;
+  for (const t of TORI) {
+    for (const lbl of t.labelRecords) {
+      lbl.div.innerHTML = `φ<sup>${lbl.baseExp + shift}</sup>`;
+    }
+  }
+  refreshLadderLabels();
+}
 
 function tick() {
   const now = performance.now();
@@ -673,44 +541,23 @@ function tick() {
   // (handled further down in this tick, after the controls update).
   const sincePageLoad = now - PAGE_LOAD_TIME;
 
-  if (direction !== 0 && !overheadMode) {
-    // currentLevel from the camera distance BEFORE moving this frame
-    const dPre = camera.position.distanceTo(controls.target);
-    const lvl  = Math.log(dPre / BASE_DIST) / LOG_PHI3;
-
-    // Distance to the limit in the current direction of travel.
-    const dToLim = (direction > 0) ? (LIMIT - lvl) : (lvl - (-LIMIT));
-
-    if (dToLim <= 0) {
-      // Crossed the limit — flip direction, update button highlights.
-      setDir(-direction);
-    } else {
-      // Smoothly ramp speed down as we approach the limit
-      let sf = 1.0;
-      if (dToLim < SLOWDOWN) {
-        const x = dToLim / SLOWDOWN;
-        sf = x * x * (3 - 2 * x);              // smoothstep
-      }
-      const effSpeed = speed * sf;
-      if (effSpeed > 1e-4) {
-        const factor = Math.exp(LOG_PHI3 * direction * effSpeed * dt);
-        const off = camera.position.clone().sub(controls.target);
-        off.multiplyScalar(factor);
-        camera.position.copy(controls.target).add(off);
-      } else {
-        // Effectively stopped — auto-reverse direction.
-        setDir(-direction);
-      }
-    }
+  if (direction !== 0) {
+    // Zoom the camera at constant speed — no LIMIT, no bounce.
+    // The recycle block AFTER controls.update() catches whole-level
+    // crossings from both button-driven zoom and mouse-wheel zoom.
+    const factor = Math.exp(LOG_PHI3 * direction * speed * dt);
+    const off = camera.position.clone().sub(controls.target);
+    off.multiplyScalar(factor);
+    camera.position.copy(controls.target).add(off);
   }
 
-  // 3D tumble (chain mode only, after the 4-second startup hold, and
-  // only while the zoom is actually playing — Pause stops the rotation
-  // too).  The rotation axis itself precesses around vertical at
-  // PRECESSION_RATE while the camera spins around it at SPIN_RATE.
-  // Only the camera position rotates; up stays (0,1,0), so the rig
-  // wobbles around the equatorial plane instead of flipping upside down.
-  if (!overheadMode && direction !== 0 && sincePageLoad >= ORBIT_DELAY_MS) {
+  // 3D tumble (after the 4-second startup hold, and only while the zoom
+  // is actually playing — Pause stops the rotation too).  The rotation
+  // axis itself precesses around vertical at PRECESSION_RATE while the
+  // camera spins around it at SPIN_RATE.  Only the camera position
+  // rotates; up stays (0,1,0), so the rig wobbles around the equatorial
+  // plane instead of flipping upside down.
+  if (direction !== 0 && sincePageLoad >= ORBIT_DELAY_MS) {
     const t = (sincePageLoad - ORBIT_DELAY_MS) / 1000;
     const precessAng = t * PRECESSION_RATE;
     ORBIT_AXIS.set(
@@ -726,19 +573,51 @@ function tick() {
 
   controls.update();
 
+  // ---- Infinite-loop recycle (fires every frame, whatever caused the move)
+  // Detect whole-level crossings from ANY source — button zoom, mouse-wheel
+  // zoom, damping, or the tumble.  When the camera crosses a phi^3 boundary
+  // in either direction we rescale radially so it lands back in the
+  // relative window (-1, +1) and shift `levelOffset` so the labels report
+  // the correct absolute powers.  `while` handles multi-level crossings.
+  {
+    let dPost   = camera.position.distanceTo(controls.target);
+    let lvlPost = Math.log(dPost / BASE_DIST) / LOG_PHI3;
+    let changed = false;
+    while (lvlPost <= -1) {
+      const p = camera.position.clone().sub(controls.target).multiplyScalar(PHI3);
+      camera.position.copy(controls.target).add(p);
+      levelOffset -= 1;
+      lvlPost += 1;
+      changed = true;
+    }
+    while (lvlPost >= 1) {
+      const p = camera.position.clone().sub(controls.target).multiplyScalar(1 / PHI3);
+      camera.position.copy(controls.target).add(p);
+      levelOffset += 1;
+      lvlPost -= 1;
+      changed = true;
+    }
+    if (changed) {
+      refreshAllLabels();
+      console.log('[recycle] offset:', levelOffset,
+                  'new camDist:', camera.position.distanceTo(controls.target).toFixed(3));
+    }
+  }
+
   // Adapt near/far each frame
   const camDist = camera.position.distanceTo(controls.target);
   camera.near = Math.max(camDist * 1e-4, 0.001);
   camera.far  = camDist * 1e4;
   camera.updateProjectionMatrix();
 
-  // currentLevel = log_phi^3 (camDist / BASE_DIST)
+  // currentLevel = log_phi^3 (camDist / BASE_DIST) — this is the RELATIVE
+  // camera level within the recycled [-1, +1] window; add levelOffset
+  // for the absolute chain level being viewed.
   const currentLevel = Math.log(camDist / BASE_DIST) / LOG_PHI3;
+  const absoluteLevel = currentLevel + levelOffset;
 
   // Fade every torus based on distance from current level.
-  // In overhead mode every chain torus stays hidden.
   for (const t of TORI) {
-    if (overheadMode) { t.fade(0); continue; }
     const d = Math.abs(t.L - currentLevel);
     if (d >= WINDOW_HALF) {
       t.fade(0);                         // off
@@ -748,17 +627,13 @@ function tick() {
     }
   }
 
-  // Phi-ladder HUD scrolls with the zoom (hidden in overhead mode).
-  if (!overheadMode) {
-    if (ladderWrap.style.display === 'none') ladderWrap.style.display = '';
-    updateLadder(currentLevel);
-  } else if (ladderWrap.style.display !== 'none') {
-    ladderWrap.style.display = 'none';
-  }
+  // Phi-ladder HUD scrolls with the zoom.
+  updateLadder(currentLevel);
 
   statusEl.textContent =
-    `level: ${currentLevel.toFixed(2)}  ·  cam dist: ${camDist.toExponential(2)}  ·  ` +
-    `tori built: ${TORI.length}`;
+    `absLvl: ${absoluteLevel.toFixed(2)}  ·  relLvl: ${currentLevel.toFixed(3)}  ·  ` +
+    `camDist: ${camDist.toExponential(2)}  ·  offset: ${levelOffset}  ·  ` +
+    `near: ${camera.near.toExponential(1)}`;
 
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
@@ -794,7 +669,19 @@ btnOut  .addEventListener('click', () => setDir(+1));
 btnReset.addEventListener('click', () => {
   camera.position.copy(DEFAULT_POS);
   controls.target.set(0, 0, 0);
+  levelOffset = 0;           // reset absolute-level tracker (was stale on reset)
+  refreshAllLabels();
   setDir(0);
+});
+
+// Speed slider — updates the `speed` variable live so the zoom rate
+// changes without restarting.  Range 0.05..3 levels/sec (labelled as ×
+// multiples of the default 0.5).
+const speedSlider = document.getElementById('b-speed');
+const speedVal    = document.getElementById('b-speed-val');
+speedSlider.addEventListener('input', () => {
+  speed = parseFloat(speedSlider.value);
+  speedVal.textContent = (speed / 0.5).toFixed(1) + '×';
 });
 
 // =============================================================
@@ -807,7 +694,6 @@ let bwMode = false;
 const BW_SCENE_BG  = new THREE.Color(0xffffff);
 const DARK_SCENE_BG = new THREE.Color(0x08001a);
 const BW_COLOR       = 0x222222;   // dark grey for tori in print mode
-const BW_LIGHT_COLOR = 0x888888;   // lighter grey for overhead wireframe
 
 function setBWMode(on) {
   bwMode = on;
@@ -823,28 +709,6 @@ function setBWMode(on) {
       }
       child.material.color.setHex(on ? BW_COLOR : child.userData.origColor);
     });
-  }
-  // Same treatment for the overhead-view widget.  Wireframe lines
-  // (parallels + meridians) use a lighter grey so the figure stays
-  // readable against the white print background.
-  overheadGroup.traverse((child) => {
-    if (!child.material || !child.material.color) return;
-    if (child.userData.origColor === undefined) {
-      child.userData.origColor = child.material.color.getHex();
-    }
-    const bw = child.userData.bwLight ? BW_LIGHT_COLOR : BW_COLOR;
-    child.material.color.setHex(on ? bw : child.userData.origColor);
-  });
-
-  // Switch the overhead R / r CSS labels into grayscale too.
-  for (const lbl of overheadLabels) {
-    if (on) {
-      lbl.div.style.color = '#222';
-      lbl.div.style.textShadow = '0 0 4px #fff, 0 0 8px #fff';
-    } else {
-      lbl.div.style.color = lbl.neonColor;
-      lbl.div.style.textShadow = lbl.neonShadow;
-    }
   }
 
   // Phi-ladder HUD: rails + rungs + labels switch to dark grey on white.
@@ -862,7 +726,6 @@ function setBWMode(on) {
 }
 
 document.getElementById('b-bw').addEventListener('click', () => setBWMode(!bwMode));
-document.getElementById('b-overhead').addEventListener('click', () => setOverheadMode(!overheadMode));
 
 // =============================================================
 //   Background music — synthwave loop.  Browsers block autoplay,
@@ -893,7 +756,6 @@ btnMusic.addEventListener('click', toggleMusic);
 window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   if (e.key === 'b' || e.key === 'B') setBWMode(!bwMode);
-  if (e.key === 'o' || e.key === 'O') setOverheadMode(!overheadMode);
   if (e.key === 'm' || e.key === 'M') toggleMusic();
 });
 
