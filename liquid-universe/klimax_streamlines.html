@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Streamlines on a Klimax torus: pure poloidal at the outer rim, pure toroidal at the inner rim, arctan(phi) at the crown.">
+<title>Klimax Torus Streamlines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --ground:#0A0C14; --panel:#121523; --raised:#191D2E; --rule:#2A3049; --rule-soft:#1F2437;
+  --ink:#E8EAF4; --dim:#959CB8; --faint:#646B88;
+  --gold:#BB8607; --gold-lit:#E3B358;
+  --tor:#00A7BA; --tor-lit:#3FCBD9;
+  --pol:#A63C6C; --pol-lit:#D4699B;
+  --serif:'Spectral',Georgia,'Times New Roman',serif;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:0 72px}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+a{color:var(--gold-lit)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- masthead ---------- */
+.mast{padding-block:52px 30px;border-bottom:1px solid var(--rule-soft)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(32px,6vw,54px);line-height:1.05;margin-top:14px;
+   letter-spacing:-.015em}
+h1 em{font-style:italic;color:var(--gold-lit)}
+.standfirst{margin-top:16px;max-width:62ch;color:var(--dim);font-size:17px}
+
+/* the three boundary conditions — real content, not decoration */
+.bcs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:30px;
+     background:var(--rule-soft);border:1px solid var(--rule-soft);border-radius:3px;overflow:hidden}
+.bc{background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:3px}
+.bc .where{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+           display:flex;align-items:center;gap:7px}
+.bc .swatch{width:9px;height:9px;border-radius:50%;flex:none}
+.bc .val{font-family:var(--serif);font-size:24px;line-height:1.15;font-weight:600}
+.bc .note{font-size:12.5px;color:var(--faint);line-height:1.45}
+.c-tor{color:var(--tor-lit)} .c-pol{color:var(--pol-lit)} .c-gold{color:var(--gold-lit)}
+.s-tor{background:var(--tor-lit)} .s-pol{background:var(--pol-lit)} .s-gold{background:var(--gold-lit)}
+
+/* ---------- section scaffolding ---------- */
+section{padding-block:44px 0}
+.sechead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+h2{font-family:var(--serif);font-weight:600;font-size:26px;letter-spacing:-.01em}
+.sechead .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.lede{color:var(--dim);max-width:66ch;margin-bottom:22px}
+
+/* ---------- viewer ---------- */
+.viewer{display:grid;grid-template-columns:minmax(0,1fr) 272px;gap:16px;align-items:start}
+.stage{position:relative;background:var(--panel);border:1px solid var(--rule-soft);border-radius:4px;overflow:hidden}
+#gl{display:block;width:100%;height:min(64vh,540px);min-height:330px;touch-action:none;cursor:grab}
+#gl:active{cursor:grabbing}
+.hint{position:absolute;left:14px;bottom:11px;font-family:var(--mono);font-size:10.5px;color:var(--faint);
+      letter-spacing:.06em;pointer-events:none}
+.probe-hud{position:absolute;right:14px;top:13px;background:rgba(10,12,20,.82);border:1px solid var(--rule);
+      border-radius:3px;padding:10px 13px;min-width:158px;backdrop-filter:blur(6px)}
+.probe-hud .row{display:flex;justify-content:space-between;gap:16px;font-family:var(--mono);font-size:12px}
+.probe-hud .row + .row{margin-top:4px}
+.probe-hud .k{color:var(--faint)} .probe-hud .v{color:var(--ink);font-variant-numeric:tabular-nums}
+.probe-hud .hud-title{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+      color:var(--gold-lit);margin-bottom:8px}
+
+.rail{background:var(--panel);border:1px solid var(--rule-soft);border-radius:4px;padding:16px 16px 18px;
+      display:flex;flex-direction:column;gap:17px}
+.rail h3{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);
+      font-weight:500}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl .lab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12.5px;color:var(--dim)}
+.ctl .lab b{font-family:var(--mono);font-weight:500;color:var(--ink);font-size:12.5px;font-variant-numeric:tabular-nums}
+.ctl .sub{font-size:11px;color:var(--faint);line-height:1.4}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--rule);border-radius:2px}
+input[type=range]::-moz-range-track{height:2px;background:var(--rule);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--gold-lit);margin-top:-5.5px;border:none}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--gold-lit);border:none}
+input[type=range]:focus-visible{outline:2px solid var(--gold-lit);outline-offset:4px;border-radius:2px}
+.checks{display:flex;flex-direction:column;gap:9px;padding-top:3px;border-top:1px solid var(--rule-soft)}
+.chk{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--dim);cursor:pointer}
+.chk input{margin:3px 0 0;accent-color:var(--gold-lit);flex:none}
+.btn{font-family:var(--sans);font-size:12.5px;background:var(--raised);color:var(--ink);border:1px solid var(--rule);
+     border-radius:3px;padding:7px 10px;cursor:pointer}
+.btn:hover{border-color:var(--gold);color:var(--gold-lit)}
+.btn:focus-visible{outline:2px solid var(--gold-lit);outline-offset:2px}
+
+/* ---------- equations ---------- */
+.law{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--rule-soft);
+     border:1px solid var(--rule-soft);border-radius:4px;overflow:hidden}
+.law .cell{background:var(--panel);padding:24px 22px 22px}
+.law .cap{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+     margin-bottom:16px}
+.eq{font-family:var(--serif);font-size:clamp(20px,3.4vw,27px);line-height:1.5;overflow-x:auto;padding-bottom:4px}
+.eq i{font-style:italic}
+.eq .op{color:var(--dim);padding-inline:.18em}
+.eq .hi{color:var(--gold-lit)}
+.eq sub{font-size:.6em}
+.law .why{margin-top:15px;font-size:13px;color:var(--dim);line-height:1.55}
+
+/* ---------- charts ---------- */
+.charts{display:flex;flex-direction:column;gap:2px}
+.chart{background:var(--panel);border:1px solid var(--rule-soft);border-radius:4px;padding:16px 16px 6px}
+.chart + .chart{margin-top:14px}
+.chart .ct{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink)}
+.chart .cs{font-size:12.5px;color:var(--faint);margin-top:2px;margin-bottom:6px}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0 0;font-size:12px;color:var(--dim)}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:16px;height:9px;border-radius:2px;display:block}
+
+/* ---------- table ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule-soft);border-radius:4px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:13.5px}
+th,td{text-align:right;padding:11px 16px;border-bottom:1px solid var(--rule-soft)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+   font-weight:500;background:var(--raised)}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.exact{color:var(--gold-lit);font-family:var(--serif);font-style:italic;font-size:15px}
+tr.mark td{background:rgba(187,134,7,.07)}
+.tagy,.tagn{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 5px;border-radius:2px;margin-left:8px;vertical-align:1px;white-space:nowrap}
+.tagy{color:var(--gold-lit);border:1px solid rgba(187,134,7,.55)}
+.tagn{color:var(--faint);border:1px solid var(--rule)}
+
+/* ---------- caveats ---------- */
+.bites{display:flex;flex-direction:column;gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);
+   border-radius:4px;overflow:hidden}
+.bite{background:var(--panel);padding:18px 20px;display:grid;grid-template-columns:132px minmax(0,1fr);gap:20px}
+.bite .verdict{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;padding-top:3px}
+.v-holds{color:var(--tor-lit)} .v-breaks{color:var(--pol-lit)} .v-choice{color:var(--gold-lit)}
+.bite .body b{color:var(--ink);font-weight:600}
+.bite .body{color:var(--dim);font-size:13.5px;line-height:1.6}
+footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--rule-soft);font-size:12.5px;color:var(--faint)}
+
+@media (max-width:880px){
+  .viewer{grid-template-columns:minmax(0,1fr)}
+  .law{grid-template-columns:minmax(0,1fr)}
+  .bcs{grid-template-columns:minmax(0,1fr)}
+  .bite{grid-template-columns:minmax(0,1fr);gap:7px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>
+  html{color-scheme:dark}
+  body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">Klimax torus &middot; R/r = &phi; &middot; surface flow</div>
+  <h1>How the pitch turns, <em>outer rim to inner rim</em></h1>
+  <p class="standfirst">A streamline that is pure poloidal where the tube is farthest from the axis, pure
+  toroidal where it is nearest, and tilted by arctan&nbsp;&phi; at the crown. Three conditions fix one law —
+  and on a Klimax torus, where R/r is itself &phi;, the rate of turning collapses to a single clean expression.</p>
+
+  <div class="bcs">
+    <div class="bc">
+      <div class="where c-pol"><span class="swatch s-pol"></span>Outer rim &nbsp;&theta; = 0&deg;</div>
+      <div class="val c-pol">90&deg;</div>
+      <div class="note">100% poloidal. The line crosses the outer equator at right angles to it.</div>
+    </div>
+    <div class="bc">
+      <div class="where c-gold"><span class="swatch s-gold"></span>Crown &nbsp;&theta; = &plusmn;90&deg;</div>
+      <div class="val c-gold">58.2825&deg;</div>
+      <div class="note">arctan&nbsp;&phi;. Your stated condition &mdash; and it equals arctan(R/r) here.</div>
+    </div>
+    <div class="bc">
+      <div class="where c-tor"><span class="swatch s-tor"></span>Inner rim &nbsp;&theta; = 180&deg;</div>
+      <div class="val c-tor">0&deg;</div>
+      <div class="note">100% toroidal. A closed loop the flow can only approach, never cross.</div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="sechead"><h2>The surface</h2><span class="tag">drag to turn &middot; scroll to zoom</span></div>
+  <p class="lede">Eight streamlines on a Klimax torus. Gold is the flow; the rose ring is the outer equator, the
+  cyan ring the inner equator, and the two dim rings are the crowns where the pitch reads arctan&nbsp;&phi;.
+  The white bead is your probe &mdash; move it with the last slider and watch the tangent swing.</p>
+
+  <div class="viewer">
+    <div class="stage">
+      <canvas id="gl"></canvas>
+      <div class="probe-hud">
+        <div class="hud-title">Probe</div>
+        <div class="row"><span class="k">&theta;</span><span class="v" id="h-th">90.0&deg;</span></div>
+        <div class="row"><span class="k">pitch &alpha;</span><span class="v" id="h-al">58.28&deg;</span></div>
+        <div class="row"><span class="k">|d&alpha;/d&theta;|</span><span class="v" id="h-sl">0.4472</span></div>
+        <div class="row"><span class="k">toroidal</span><span class="v" id="h-tor">52.6%</span></div>
+      </div>
+      <div class="hint">drag &middot; scroll &middot; two-finger drag on touch</div>
+    </div>
+
+    <div class="rail">
+      <h3>Geometry</h3>
+      <div class="ctl">
+        <div class="lab"><label for="c-ratio">Aspect R / r</label><b id="v-ratio">1.618</b></div>
+        <input type="range" id="c-ratio" min="1.15" max="3.2" step="0.001" value="1.618034">
+        <div class="sub" id="s-ratio">Klimax value: &phi;. The tube radius and the spine radius are consecutive
+        powers of &phi;.</div>
+      </div>
+      <div class="ctl">
+        <div class="lab"><label for="c-k">Pitch constant k</label><b id="v-k">1.618</b></div>
+        <input type="range" id="c-k" min="0.3" max="4" step="0.001" value="1.618034">
+        <div class="sub" id="s-k">Crown pitch = arctan k = <span id="s-kdeg">58.28&deg;</span></div>
+      </div>
+
+      <h3>Drawing</h3>
+      <div class="ctl">
+        <div class="lab"><label for="c-n">Streamlines</label><b id="v-n">8</b></div>
+        <input type="range" id="c-n" min="1" max="24" step="1" value="8">
+      </div>
+      <div class="ctl">
+        <div class="lab"><label for="c-d">Stop short of inner rim</label><b id="v-d">2.0&deg;</b></div>
+        <input type="range" id="c-d" min="-1.4" max="1.5" step="0.01" value="0.301">
+        <div class="sub" id="s-d">Each line makes <span id="s-laps">1.9</span> toroidal laps before it gets
+        this close.</div>
+      </div>
+
+      <h3>Probe</h3>
+      <div class="ctl">
+        <div class="lab"><label for="c-probe">Poloidal angle &theta;</label><b id="v-probe">90&deg;</b></div>
+        <input type="range" id="c-probe" min="-180" max="180" step="0.5" value="90">
+      </div>
+
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="c-spin" checked> Turn the model slowly</label>
+        <label class="chk"><input type="checkbox" id="c-grid"> Show the coordinate grid</label>
+        <label class="chk"><input type="checkbox" id="c-flip"> Reverse toroidal drift below the equator</label>
+        <button class="btn" id="c-reset" type="button">Reset to Klimax defaults</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead"><h2>The law</h2><span class="tag">derived from your three conditions</span></div>
+  <p class="lede">Write &alpha; for the angle the streamline makes with the toroidal direction, and &theta; for how
+  far round the tube you are (0&deg; at the outer rim, 180&deg; at the inner rim). One function hits all three of
+  your boundary values, and only one.</p>
+  <div class="law">
+    <div class="cell">
+      <div class="cap">Pitch angle</div>
+      <div class="eq">tan&thinsp;<i>&alpha;</i><span class="op">=</span><span class="hi">&phi;</span>
+        &thinsp;cot<span class="op"></span>(<i>&theta;</i>&thinsp;/&thinsp;2)</div>
+      <p class="why">At &theta;&nbsp;=&nbsp;0 the cotangent is infinite, so &alpha;&nbsp;=&nbsp;90&deg;. At
+      &theta;&nbsp;=&nbsp;180&deg; it is zero, so &alpha;&nbsp;=&nbsp;0. At &theta;&nbsp;=&nbsp;90&deg; it is
+      exactly 1, so tan&nbsp;&alpha;&nbsp;=&nbsp;&phi; &mdash; your crown condition, with nothing left over to tune.</p>
+    </div>
+    <div class="cell">
+      <div class="cap">Rate of turning</div>
+      <div class="eq"><span class="op"></span>|d<i>&alpha;</i>/d<i>&theta;</i>|<span class="op">=</span>
+        <span style="display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;
+        line-height:1.15;font-size:.82em">
+          <span style="border-bottom:1px solid currentColor;padding:0 .3em">1</span>
+          <span style="padding:0 .3em"><span class="hi">&radic;5</span>&thinsp;+&thinsp;cos&thinsp;<i>&theta;</i></span>
+        </span></div>
+      <p class="why">The golden ratio vanishes into a bare &radic;5. That happens for one value of the pitch
+      constant only: <i>k</i>&nbsp;=&nbsp;&phi; is the unique <i>k</i> where the cos&nbsp;&theta; term arrives with
+      coefficient exactly 1, because that is what <i>k</i>&sup2;&nbsp;&minus;&nbsp;<i>k</i>&nbsp;&minus;&nbsp;1&nbsp;=&nbsp;0 says.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead"><h2>The slope, all the way round</h2><span class="tag">live &mdash; tracks the rail above</span></div>
+  <p class="lede">Both plots run one full poloidal circuit: inner rim at the far left, out over the bottom crown,
+  across the outer rim at centre, over the top crown, back to the inner rim at the far right. The wash behind
+  them says which component is winning.</p>
+
+  <div class="charts">
+    <div class="chart">
+      <div class="ct">Pitch angle &alpha; &mdash; degrees from the toroidal direction</div>
+      <div class="cs">Peaks at 90&deg; on the outer rim, falls to 0&deg; at both inner-rim ends.</div>
+      <div id="chart-a"></div>
+    </div>
+    <div class="chart">
+      <div class="ct">Rate of turning |d&alpha;/d&theta;| &mdash; degrees of pitch per degree travelled</div>
+      <div class="cs">Never constant. Slowest at the outer rim, fastest at the inner rim. The two extremes differ by exactly &frac12; &mdash; that part is &phi;&rsquo;s doing.</div>
+      <div id="chart-b"></div>
+    </div>
+    <div class="chart">
+      <div class="ct">The same line unrolled &mdash; toroidal laps against poloidal angle</div>
+      <div class="cs">Cut the tube open and flatten it. The line hairpins at the outer rim and runs away
+      horizontally at both inner-rim edges.</div>
+      <div id="chart-c"></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--gold)"></i>streamline / pitch</span>
+      <span><i style="background:rgba(0,167,186,.30)"></i>toroidal component winning</span>
+      <span><i style="background:rgba(166,60,108,.30)"></i>poloidal component winning</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead"><h2>The numbers</h2><span class="tag">exact, at k = &phi;</span></div>
+  <p class="lede">Every value below is closed-form. Rows flagged <span class="tagy">&phi;</span> genuinely depend
+  on the pitch constant being &phi;. The row flagged <span class="tagn">any k</span> does not &mdash; the circuit
+  average is &frac12; for <em>every</em> pitch law that runs 90&deg; down to 0&deg; over half a turn, so it is
+  arithmetic, not a golden-ratio result. Don&rsquo;t quote that one as evidence.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Where</th><th>&theta;</th><th>Pitch &alpha;</th><th>|d&alpha;/d&theta;|</th><th>Exact</th></tr></thead>
+      <tbody>
+        <tr class="mark"><td>Outer rim &mdash; pure poloidal <span class="tagy">&phi;</span></td><td class="num">0&deg;</td><td class="num">90.0000&deg;</td><td class="num">0.309017</td><td class="exact">1 / 2&phi;</td></tr>
+        <tr class="mark"><td>Crown &mdash; top and bottom <span class="tagy">&phi;</span></td><td class="num">90&deg;</td><td class="num">58.2825&deg;</td><td class="num">0.447214</td><td class="exact">1 / &radic;5</td></tr>
+        <tr><td>Component crossover &mdash; &alpha; passes 45&deg;</td><td class="num">116.5651&deg;</td><td class="num">45.0000&deg;</td><td class="num">0.559017</td><td class="exact">&radic;5 / 4</td></tr>
+        <tr class="mark"><td>Inner rim &mdash; pure toroidal <span class="tagy">&phi;</span></td><td class="num">180&deg;</td><td class="num">0.0000&deg;</td><td class="num">0.809017</td><td class="exact">&phi; / 2</td></tr>
+        <tr><td>Circuit average <span class="tagn">any k</span></td><td class="num">&mdash;</td><td class="num">&mdash;</td><td class="num">0.500000</td><td class="exact">1 / 2</td></tr>
+        <tr><td>Extremes: difference <span class="tagy">&phi;</span></td><td class="num">&mdash;</td><td class="num">&mdash;</td><td class="num">0.500000</td><td class="exact">(&phi;/2) &minus; (1/2&phi;)</td></tr>
+        <tr><td>Extremes: ratio <span class="tagy">&phi;</span></td><td class="num">&mdash;</td><td class="num">&mdash;</td><td class="num">2.618034</td><td class="exact">&phi;&sup2;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sechead"><h2>Where the model bites</h2><span class="tag">read before you trust it</span></div>
+  <p class="lede">Four things the picture does that your description probably did not intend, or did not yet say.</p>
+  <div class="bites">
+    <div class="bite">
+      <div class="verdict v-breaks">Never returns</div>
+      <div class="body"><b>&ldquo;Back around again&rdquo; does not happen toroidally.</b> Making the inner rim
+      <em>exactly</em> 100% toroidal turns it into a closed loop of the flow, and no streamline can cross a closed
+      loop. Each line is born infinitesimally close to the inner rim, runs once over the crown, across the outer
+      rim and back &mdash; a complete poloidal circuit &mdash; but takes infinitely many toroidal laps to leave and
+      to land. The saving grace is that the divergence is logarithmic and therefore gentle: the gap to the inner
+      rim shrinks by a factor of e every 2 radians of toroidal travel, so about 23&times; per lap. One and a half
+      laps already puts you within a degree.</div>
+    </div>
+    <div class="bite">
+      <div class="verdict v-choice">Your choice</div>
+      <div class="body"><b>Which way the flow drifts below the equator.</b> The pitch <em>angle</em> is symmetric
+      top-to-bottom, but the flow direction is not determined by it. Either the toroidal drift keeps the same
+      sense all the way round (the default here), or it reverses across the outer rim, putting a shear layer in
+      the equatorial plane. Both satisfy everything you specified. The checkbox switches them.</div>
+    </div>
+    <div class="bite">
+      <div class="verdict v-holds">Not an accident</div>
+      <div class="body"><b>arctan&nbsp;&phi; at the crown may be forced rather than assumed.</b> You gave it as a
+      condition. But on a Klimax torus the crown sits at height r above the equatorial plane and distance R from
+      the axis, and R/r&nbsp;=&nbsp;&phi; &mdash; so arctan(R/r) is arctan&nbsp;&phi; already. If the general law
+      is tan&nbsp;&alpha;&nbsp;=&nbsp;(R/r)&thinsp;cot(&theta;/2), your crown angle is a consequence of the
+      aspect ratio, not an extra input. Drag the aspect slider and watch the crown pitch follow it.</div>
+    </div>
+    <div class="bite">
+      <div class="verdict v-choice">Don&rsquo;t overclaim</div>
+      <div class="body"><b>Some of the pretty numbers are not about &phi; at all.</b> The circuit average of
+      &frac12;, and the fact that the fastest and slowest turning rates multiply to &frac14;, hold for
+      <em>any</em> pitch constant k &mdash; they follow from &alpha; running 90&deg; down to 0&deg; over half a
+      turn and nothing else. What is genuinely &phi;-specific: the cos&nbsp;&theta; coefficient being exactly 1,
+      the extremes being 1/2&phi; and &phi;/2, their <em>difference</em> being exactly &frac12;, and their ratio
+      being &phi;&sup2;. Move the k slider and watch which numbers stay put.</div>
+    </div>
+    <div class="bite">
+      <div class="verdict v-breaks">Direction only</div>
+      <div class="body"><b>This is a direction field, not yet a fluid.</b> It says which way the flow points
+      everywhere, and nothing about how fast. To make it an actual incompressible flow you would have to solve
+      for a speed that keeps the divergence zero on the surface &mdash; and near the inner rim, where the lines
+      crowd together without limit, that speed has to do something drastic. Worth knowing before the picture gets
+      attached to any conserved quantity.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Klimax torus after <span class="mono">liquid-universe/klimax_ladder_animation.html</span> &mdash;
+  tube &phi;<sup>3L</sup>, spine &phi;<sup>3L+1</sup>, outer edge &phi;<sup>3L+2</sup>.
+  Streamlines integrated in the poloidal angle with clustered sampling near both inner-rim asymptotes.
+</footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const PHI = (1 + Math.sqrt(5)) / 2;
+const DEG = 180 / Math.PI, RAD = Math.PI / 180;
+const C = {
+  gold:0xBB8607, goldLit:0xE3B358, tor:0x00A7BA, torLit:0x3FCBD9,
+  pol:0xA63C6C, polLit:0xD4699B, surf:0x161A2B, wire:0x333B57, bead:0xE8EAF4
+};
+const CSS = { gold:'#BB8607', goldLit:'#E3B358', tor:'#00A7BA', torLit:'#3FCBD9',
+  pol:'#A63C6C', polLit:'#D4699B', ink:'#E8EAF4', dim:'#959CB8', faint:'#646B88',
+  rule:'#2A3049', ruleSoft:'#1F2437' };
+
+/* ---------------- state ---------------- */
+const S = { ratio:PHI, k:PHI, n:8, delta:2*RAD, probe:90*RAD, spin:true, grid:false, flip:false };
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduce) S.spin = false;
+
+/* r is fixed at 1; R follows the aspect ratio */
+const rTube = () => 1;
+const rSpine = () => S.ratio;
+
+/* pitch angle from the toroidal direction, as a magnitude in [0, pi/2] */
+function alphaAt(th){ const a = Math.abs(th) / 2; return Math.atan2(S.k * Math.cos(a), Math.sin(a)); }
+/* |d(alpha)/d(theta)| = 1 / ( (1+k^2)/k + ((k^2-1)/k) cos theta ) */
+function slopeAt(th){
+  const k = S.k;
+  return 1 / ((1 + k*k)/k + ((k*k - 1)/k) * Math.cos(th));
+}
+/* d(zeta)/d(theta) for the trajectory */
+function dzeta(th){
+  const R = rSpine(), r = rTube();
+  const t = Math.tan(Math.abs(th) / 2);
+  const v = r * t / (S.k * (R + r * Math.cos(th)));
+  return (S.flip && th < 0) ? -v : v;
+}
+/* surface point, Y up, torus axis = Y */
+function P(th, ze, lift){
+  const R = rSpine(), r = rTube() + (lift || 0);
+  const rho = R + r * Math.cos(th);
+  return new THREE.Vector3(rho * Math.cos(ze), r * Math.sin(th), -rho * Math.sin(ze));
+}
+
+/* integrate one streamline; theta clustered towards both ends */
+function streamline(ze0, N){
+  const lim = Math.PI - S.delta, a = 2.5, ta = Math.tanh(a);
+  const ths = [];
+  for (let i = 0; i < N; i++){
+    const u = -1 + 2*i/(N-1);
+    ths.push(lim * Math.tanh(a*u) / ta);
+  }
+  /* zeta by Simpson on each interval, anchored at theta = 0 */
+  const zes = new Array(N);
+  const mid = (N-1)/2 | 0;
+  zes[mid] = 0;
+  for (let i = mid; i < N-1; i++){
+    const t0 = ths[i], t1 = ths[i+1], h = t1 - t0;
+    zes[i+1] = zes[i] + h/6 * (dzeta(t0) + 4*dzeta((t0+t1)/2) + dzeta(t1));
+  }
+  for (let i = mid; i > 0; i--){
+    const t0 = ths[i-1], t1 = ths[i], h = t1 - t0;
+    zes[i-1] = zes[i] - h/6 * (dzeta(t0) + 4*dzeta((t0+t1)/2) + dzeta(t1));
+  }
+  const pts = [];
+  for (let i = 0; i < N; i++) pts.push(P(ths[i], ze0 + zes[i], 0.018));
+  return { pts, ths, zes };
+}
+
+/* laps the line makes on one side, for the readout */
+function lapsOneSide(){
+  const lim = Math.PI - S.delta, M = 4000;
+  let s = 0;
+  for (let i = 0; i < M; i++){
+    const t0 = lim*i/M, t1 = lim*(i+1)/M;
+    s += (t1-t0)/6 * (dzeta(t0) + 4*dzeta((t0+t1)/2) + dzeta(t1));
+  }
+  return Math.abs(s) / (2*Math.PI);
+}
+
+/* ---------------- three.js scene ---------------- */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setClearColor(0x121523, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.42));
+const l1 = new THREE.DirectionalLight(0xffe6bb, 0.62); l1.position.set(4, 6, 3); scene.add(l1);
+const l2 = new THREE.DirectionalLight(0x8fb6ff, 0.34); l2.position.set(-5, -3, -4); scene.add(l2);
+
+const surfMat = new THREE.MeshStandardMaterial({color:C.surf, roughness:0.88, metalness:0.12,
+  flatShading:false, side:THREE.DoubleSide});
+const wireMat = new THREE.LineBasicMaterial({color:C.wire, transparent:true, opacity:0.30});
+let surf = null, wire = null;
+
+const dyn = new THREE.Group(); scene.add(dyn);      /* streamlines + landmark rings */
+const probeG = new THREE.Group(); scene.add(probeG);
+
+function tube(pts, rad, color, closed){
+  const curve = new THREE.CatmullRomCurve3(pts, !!closed, 'centripetal', 0.5);
+  const g = new THREE.TubeGeometry(curve, Math.max(24, pts.length), rad, 6, !!closed);
+  return new THREE.Mesh(g, new THREE.MeshBasicMaterial({color}));
+}
+function ring(th, color, rad){
+  const pts = [];
+  for (let i = 0; i < 160; i++) pts.push(P(th, 2*Math.PI*i/160, 0.012));
+  return tube(pts, rad, color, true);
+}
+function clear(group){
+  while (group.children.length){
+    const m = group.children.pop();
+    if (m.geometry) m.geometry.dispose();
+    if (m.material) m.material.dispose();
+  }
+}
+
+function buildSurface(){
+  if (surf){ scene.remove(surf); surf.geometry.dispose(); }
+  if (wire){ scene.remove(wire); wire.geometry.dispose(); }
+  const g = new THREE.TorusGeometry(rSpine(), rTube(), 72, 160);
+  g.rotateX(-Math.PI/2);
+  surf = new THREE.Mesh(g, surfMat); scene.add(surf);
+  const gw = new THREE.TorusGeometry(rSpine(), rTube()*1.004, 18, 40);
+  gw.rotateX(-Math.PI/2);
+  wire = new THREE.LineSegments(new THREE.WireframeGeometry(gw), wireMat);
+  wire.visible = S.grid; scene.add(wire);
+}
+
+function buildLines(){
+  clear(dyn);
+  const N = 761;
+  for (let j = 0; j < S.n; j++){
+    const sl = streamline(2*Math.PI*j/S.n, N);
+    dyn.add(tube(sl.pts, 0.019, C.goldLit, false));
+  }
+  dyn.add(ring(0, C.polLit, 0.016));                    /* outer equator */
+  dyn.add(ring(Math.PI, C.torLit, 0.016));              /* inner equator */
+  dyn.add(ring(Math.PI/2, 0x6F7796, 0.009));            /* crowns */
+  dyn.add(ring(-Math.PI/2, 0x6F7796, 0.009));
+}
+
+function buildProbe(){
+  clear(probeG);
+  const th = S.probe, ze = 0.0;
+  const p = P(th, ze, 0.032);
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.052, 20, 16),
+    new THREE.MeshBasicMaterial({color:C.bead}));
+  bead.position.copy(p); probeG.add(bead);
+
+  /* tangent: poloidal unit + toroidal unit, weighted by the pitch */
+  const R = rSpine(), r = rTube();
+  const eTor = new THREE.Vector3(-Math.sin(ze), 0, -Math.cos(ze));
+  const ePol = new THREE.Vector3(-Math.sin(th)*Math.cos(ze), Math.cos(th), Math.sin(th)*Math.sin(ze));
+  const al = alphaAt(th);
+  const dir = eTor.clone().multiplyScalar(Math.cos(al)).add(ePol.clone().multiplyScalar(Math.sin(al)));
+  if (S.flip && th < 0) dir.addScaledVector(eTor, -2*Math.cos(al));
+  dir.normalize();
+  const len = 0.62;
+  probeG.add(tube([p.clone().addScaledVector(dir,-0.02), p.clone().addScaledVector(dir, len)],
+    0.017, C.bead, false));
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.15, 14),
+    new THREE.MeshBasicMaterial({color:C.bead}));
+  head.position.copy(p).addScaledVector(dir, len + 0.06);
+  head.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+  probeG.add(head);
+}
+
+/* ---------------- camera rig ---------------- */
+let az = 0.72, el = 0.50, dist = 9.9, dragging = false, px = 0, py = 0;
+function placeCamera(){
+  const d = dist * (rSpine() + rTube()) / (PHI + 1);
+  camera.position.set(d*Math.cos(el)*Math.sin(az), d*Math.sin(el), d*Math.cos(el)*Math.cos(az));
+  camera.lookAt(0,0,0);
+}
+canvas.addEventListener('pointerdown', e => { dragging = true; px = e.clientX; py = e.clientY;
+  canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup',   e => { dragging = false; });
+canvas.addEventListener('pointercancel', () => { dragging = false; });
+canvas.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  az -= (e.clientX - px) * 0.0072;
+  el = Math.max(-1.45, Math.min(1.45, el + (e.clientY - py) * 0.0060));
+  px = e.clientX; py = e.clientY;
+});
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  dist = Math.max(3.4, Math.min(16, dist * Math.exp(e.deltaY * 0.0011)));
+}, {passive:false});
+
+function resize(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(dpr);
+  if (canvas.width !== Math.round(w*dpr) || canvas.height !== Math.round(h*dpr)){
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+}
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (S.spin && !dragging) az += dt * 0.16;
+  resize(); placeCamera();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- charts ---------------- */
+const W = 760, H = 210, PAD = {l:62, r:22, t:14, b:32};
+const IW = W - PAD.l - PAD.r, IH = H - PAD.t - PAD.b;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+function frameSVG(body, label){
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(label)+'" width="'+W+
+         '" height="'+H+'">'+body+'</svg>';
+}
+function xOf(thDeg){ return PAD.l + (thDeg + 180)/360 * IW; }
+
+/* shared backdrop: axis, ticks, regime wash */
+function backdrop(yTicks, yOf, yFmt){
+  const cross = 2 * Math.atan(S.k) * DEG;          /* |theta| where alpha = 45 deg */
+  let s = '';
+  s += '<rect x="'+xOf(-cross)+'" y="'+PAD.t+'" width="'+(xOf(cross)-xOf(-cross))+'" height="'+IH+
+       '" fill="'+CSS.pol+'" fill-opacity="0.13"/>';
+  s += '<rect x="'+PAD.l+'" y="'+PAD.t+'" width="'+(xOf(-cross)-PAD.l)+'" height="'+IH+
+       '" fill="'+CSS.tor+'" fill-opacity="0.13"/>';
+  s += '<rect x="'+xOf(cross)+'" y="'+PAD.t+'" width="'+(PAD.l+IW-xOf(cross))+'" height="'+IH+
+       '" fill="'+CSS.tor+'" fill-opacity="0.13"/>';
+  for (const t of yTicks){
+    const y = yOf(t);
+    s += '<line x1="'+PAD.l+'" y1="'+y+'" x2="'+(PAD.l+IW)+'" y2="'+y+'" stroke="'+CSS.ruleSoft+'" stroke-width="1"/>';
+    s += '<text x="'+(PAD.l-9)+'" y="'+(y+4)+'" text-anchor="end" fill="'+CSS.faint+
+         '" font-family="IBM Plex Mono, monospace" font-size="11">'+esc(yFmt(t))+'</text>';
+  }
+  const xt = [[-180,'inner'],[-90,'crown'],[0,'outer'],[90,'crown'],[180,'inner']];
+  for (const [v,lab] of xt){
+    const x = xOf(v);
+    s += '<line x1="'+x+'" y1="'+PAD.t+'" x2="'+x+'" y2="'+(PAD.t+IH)+'" stroke="'+CSS.ruleSoft+'" stroke-width="1"/>';
+    s += '<text x="'+x+'" y="'+(PAD.t+IH+15)+'" text-anchor="middle" fill="'+CSS.faint+
+         '" font-family="IBM Plex Mono, monospace" font-size="11">'+v+'&#176;</text>';
+    s += '<text x="'+x+'" y="'+(PAD.t+IH+27)+'" text-anchor="middle" fill="'+CSS.faint+
+         '" font-family="IBM Plex Sans, sans-serif" font-size="10" opacity="0.8">'+lab+'</text>';
+  }
+  return s;
+}
+function probeCursor(yTop, yBot){
+  const x = xOf(S.probe * DEG);
+  return '<line x1="'+x+'" y1="'+yTop+'" x2="'+x+'" y2="'+yBot+'" stroke="'+CSS.ink+
+         '" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>';
+}
+function gutter(y, text, fill, dy){
+  return '<text x="'+(PAD.l-9)+'" y="'+(y+dy)+'" text-anchor="end" fill="'+fill+
+         '" font-family="IBM Plex Sans, sans-serif" font-size="9.5" letter-spacing=".04em">'+text+'</text>';
+}
+function dot(x, y, fill){
+  return '<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="'+fill+'" stroke="#121523" stroke-width="2"/>';
+}
+function lbl(x, y, t, anchor, fill){
+  return '<text x="'+x+'" y="'+y+'" text-anchor="'+anchor+'" fill="'+(fill||CSS.ink)+
+         '" font-family="IBM Plex Mono, monospace" font-size="11">'+t+'</text>';
+}
+
+function chartAlpha(){
+  const yOf = v => PAD.t + IH - v/90 * IH;
+  let d = '';
+  for (let i = 0; i <= 360; i++){
+    const th = (-180 + i) * RAD;
+    d += (i ? 'L' : 'M') + xOf(-180+i).toFixed(2) + ' ' + yOf(alphaAt(th)*DEG).toFixed(2);
+  }
+  let s = backdrop([0,30,60,90], yOf, v => v + '°');
+  const crownDeg = Math.atan(S.k) * DEG;
+  s += '<line x1="'+PAD.l+'" y1="'+yOf(crownDeg)+'" x2="'+(PAD.l+IW)+'" y2="'+yOf(crownDeg)+
+       '" stroke="'+CSS.gold+'" stroke-width="1" stroke-dasharray="4 4" opacity="0.75"/>';
+  s += probeCursor(PAD.t, PAD.t+IH);
+  s += '<path d="'+d+'" fill="none" stroke="'+CSS.gold+'" stroke-width="2.2" stroke-linejoin="round"/>';
+  s += dot(xOf(0), yOf(90), CSS.polLit) + lbl(xOf(0), yOf(90)+17, '90° poloidal', 'middle', CSS.polLit);
+  s += gutter(yOf(90), 'poloidal', CSS.polLit, 15) + gutter(yOf(0), 'toroidal', CSS.torLit, -8);
+  s += dot(xOf(90), yOf(crownDeg), CSS.goldLit)
+     + lbl(xOf(90)+10, yOf(crownDeg)-7, 'arctan k = '+crownDeg.toFixed(2)+'°', 'start', CSS.goldLit);
+  s += dot(xOf(-90), yOf(crownDeg), CSS.goldLit);
+  s += dot(xOf(180), yOf(0), CSS.torLit);
+  s += dot(xOf(-180), yOf(0), CSS.torLit);
+  return frameSVG(s, 'Pitch angle against poloidal angle: 90 degrees at the outer rim, '
+    + crownDeg.toFixed(2) + ' degrees at the crowns, 0 degrees at the inner rim.');
+}
+
+function chartSlope(){
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i <= 360; i++){ const v = slopeAt((-180+i)*RAD); if (v<lo) lo=v; if (v>hi) hi=v; }
+  const pad = (hi-lo)*0.22 || 0.1, y0 = Math.max(0, lo-pad), y1 = hi+pad;
+  const yOf = v => PAD.t + IH - (v-y0)/(y1-y0) * IH;
+  const ticks = [];
+  const step = (y1-y0) > 1.2 ? 0.5 : (y1-y0) > 0.6 ? 0.2 : 0.1;
+  for (let v = Math.ceil(y0/step)*step; v <= y1+1e-9; v += step) ticks.push(+v.toFixed(3));
+  let d = '';
+  for (let i = 0; i <= 360; i++){
+    d += (i ? 'L' : 'M') + xOf(-180+i).toFixed(2) + ' ' + yOf(slopeAt((-180+i)*RAD)).toFixed(2);
+  }
+  let s = backdrop(ticks, yOf, v => v.toFixed(1));
+  /* mean of 1/(A + B cos) round the circle is 1/sqrt(A^2 - B^2), which is 1/2 for every k */
+  const meanV = 0.5;
+  if (meanV > y0 && meanV < y1){
+    s += '<line x1="'+PAD.l+'" y1="'+yOf(meanV)+'" x2="'+(PAD.l+IW)+'" y2="'+yOf(meanV)+
+         '" stroke="'+CSS.gold+'" stroke-width="1" stroke-dasharray="4 4" opacity="0.75"/>';
+    s += lbl(xOf(0), yOf(meanV)-8, 'mean 0.5000 \u2014 true for any k', 'middle', CSS.goldLit);
+  }
+  s += probeCursor(PAD.t, PAD.t+IH);
+  s += '<path d="'+d+'" fill="none" stroke="'+CSS.gold+'" stroke-width="2.2" stroke-linejoin="round"/>';
+  const sOut = slopeAt(0), sCr = slopeAt(Math.PI/2), sIn = slopeAt(Math.PI);
+  s += dot(xOf(0), yOf(sOut), CSS.polLit) + lbl(xOf(0), yOf(sOut)+18, sOut.toFixed(4), 'middle', CSS.polLit);
+  s += dot(xOf(90), yOf(sCr), CSS.goldLit) + lbl(xOf(90)+10, yOf(sCr)+4, sCr.toFixed(4), 'start', CSS.goldLit);
+  s += dot(xOf(-90), yOf(sCr), CSS.goldLit);
+  s += dot(xOf(180), yOf(sIn), CSS.torLit) + lbl(xOf(180), yOf(sIn)-10, sIn.toFixed(4), 'end', CSS.torLit);
+  s += dot(xOf(-180), yOf(sIn), CSS.torLit);
+  return frameSVG(s, 'Rate of turning against poloidal angle: ' + sOut.toFixed(4)
+    + ' at the outer rim, ' + sCr.toFixed(4) + ' at the crowns, ' + sIn.toFixed(4) + ' at the inner rim.');
+}
+
+function chartUnroll(){
+  const sl = streamline(0, 601);
+  let maxZ = 0;
+  for (const z of sl.zes) maxZ = Math.max(maxZ, Math.abs(z));
+  const lapsMax = Math.max(0.25, maxZ / (2*Math.PI));
+  const yOf = th => PAD.t + IH - (th*DEG + 180)/360 * IH;
+  const xZ = z => PAD.l + Math.abs(z)/(2*Math.PI) / lapsMax * IW;
+  let s = '';
+  /* regime wash, rotated: here y is theta */
+  const cross = 2 * Math.atan(S.k) * DEG;
+  s += '<rect x="'+PAD.l+'" y="'+yOf(cross*RAD)+'" width="'+IW+'" height="'+(yOf(-cross*RAD)-yOf(cross*RAD))+
+       '" fill="'+CSS.pol+'" fill-opacity="0.13"/>';
+  s += '<rect x="'+PAD.l+'" y="'+PAD.t+'" width="'+IW+'" height="'+(yOf(cross*RAD)-PAD.t)+
+       '" fill="'+CSS.tor+'" fill-opacity="0.13"/>';
+  s += '<rect x="'+PAD.l+'" y="'+yOf(-cross*RAD)+'" width="'+IW+'" height="'+(PAD.t+IH-yOf(-cross*RAD))+
+       '" fill="'+CSS.tor+'" fill-opacity="0.13"/>';
+  for (const v of [-180,-90,0,90,180]){
+    const y = yOf(v*RAD);
+    s += '<line x1="'+PAD.l+'" y1="'+y+'" x2="'+(PAD.l+IW)+'" y2="'+y+'" stroke="'+CSS.ruleSoft+'" stroke-width="1"/>';
+    s += '<text x="'+(PAD.l-9)+'" y="'+(y+4)+'" text-anchor="end" fill="'+CSS.faint+
+         '" font-family="IBM Plex Mono, monospace" font-size="11">'+v+'&#176;</text>';
+  }
+  const nT = 4;
+  for (let i = 0; i <= nT; i++){
+    const lap = lapsMax * i/nT, x = PAD.l + IW*i/nT;
+    s += '<line x1="'+x+'" y1="'+PAD.t+'" x2="'+x+'" y2="'+(PAD.t+IH)+'" stroke="'+CSS.ruleSoft+'" stroke-width="1"/>';
+    s += '<text x="'+x+'" y="'+(PAD.t+IH+16)+'" text-anchor="middle" fill="'+CSS.faint+
+         '" font-family="IBM Plex Mono, monospace" font-size="11">'+lap.toFixed(2)+'</text>';
+  }
+  s += '<text x="'+(PAD.l+IW/2)+'" y="'+(PAD.t+IH+29)+'" text-anchor="middle" fill="'+CSS.faint+
+       '" font-family="IBM Plex Sans, sans-serif" font-size="10">toroidal laps from the outer-rim crossing</text>';
+  for (const v of [-180,180]){
+    s += '<line x1="'+PAD.l+'" y1="'+yOf(v*RAD)+'" x2="'+(PAD.l+IW)+'" y2="'+yOf(v*RAD)+'" stroke="'+CSS.torLit+
+         '" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>';
+  }
+  let d = '';
+  for (let i = 0; i < sl.ths.length; i++){
+    d += (i ? 'L' : 'M') + xZ(sl.zes[i]).toFixed(2) + ' ' + yOf(sl.ths[i]).toFixed(2);
+  }
+  s += '<path d="'+d+'" fill="none" stroke="'+CSS.gold+'" stroke-width="2.2" stroke-linejoin="round"/>';
+  s += dot(xZ(0), yOf(0), CSS.polLit) + lbl(xZ(0)+11, yOf(0)+4, 'outer rim', 'start', CSS.polLit);
+  const py = yOf(S.probe);
+  s += '<line x1="'+PAD.l+'" y1="'+py+'" x2="'+(PAD.l+IW)+'" y2="'+py+'" stroke="'+CSS.ink+
+       '" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>';
+  s += gutter(yOf(180*RAD), 'inner rim', CSS.torLit, 15) + gutter(yOf(-180*RAD), 'inner rim', CSS.torLit, -8)
+     + gutter(yOf(0), 'outer rim', CSS.polLit, -8);
+  return frameSVG(s, 'The streamline unrolled: a hairpin crossing the outer rim once and running off '
+    + 'horizontally towards both inner-rim asymptotes after about ' + lapsMax.toFixed(2) + ' toroidal laps.');
+}
+
+/* ---------------- wiring ---------------- */
+const $ = id => document.getElementById(id);
+function drawCharts(){
+  $('chart-a').innerHTML = chartAlpha();
+  $('chart-b').innerHTML = chartSlope();
+  $('chart-c').innerHTML = chartUnroll();
+}
+function hoverToProbe(host, ev){
+  const svg = host.querySelector('svg');
+  if (!svg) return;
+  const b = svg.getBoundingClientRect();
+  const frac = ((ev.clientX - b.left) / b.width * W - PAD.l) / IW;
+  if (frac < 0 || frac > 1) return;
+  const deg = Math.round((-180 + frac * 360) * 2) / 2;
+  S.probe = deg * RAD;
+  $('c-probe').value = deg;
+  buildProbe(); updateHUD(); updateRail(); drawCharts();
+}
+function updateHUD(){
+  const th = S.probe, al = alphaAt(th);
+  $('h-th').textContent  = (th*DEG).toFixed(1) + '°';
+  $('h-al').textContent  = (al*DEG).toFixed(2) + '°';
+  $('h-sl').textContent  = slopeAt(th).toFixed(4);
+  $('h-tor').textContent = (Math.cos(al)*100).toFixed(1) + '%';
+}
+function updateRail(){
+  $('v-ratio').textContent = S.ratio.toFixed(3);
+  $('v-k').textContent = S.k.toFixed(3);
+  $('s-kdeg').textContent = (Math.atan(S.k)*DEG).toFixed(2) + '°';
+  $('v-n').textContent = S.n;
+  $('v-d').textContent = (S.delta*DEG).toFixed(2) + '°';
+  $('v-probe').textContent = (S.probe*DEG).toFixed(0) + '°';
+  $('s-laps').textContent = lapsOneSide().toFixed(2);
+  $('s-ratio').innerHTML = Math.abs(S.ratio - PHI) < 5e-4
+    ? 'Klimax value: φ. Tube and spine radii are consecutive powers of φ.'
+    : 'Off the Klimax value — φ is 1.618. arctan(R/r) is now '
+      + (Math.atan(S.ratio)*DEG).toFixed(2) + '°.';
+}
+function rebuildAll(){ buildSurface(); buildLines(); buildProbe(); updateRail(); updateHUD(); drawCharts(); }
+
+$('c-ratio').addEventListener('input', e => {
+  S.ratio = +e.target.value;
+  buildSurface(); buildLines(); buildProbe(); updateRail(); drawCharts();
+});
+$('c-k').addEventListener('input', e => {
+  S.k = +e.target.value; buildLines(); buildProbe(); updateRail(); updateHUD(); drawCharts();
+});
+$('c-n').addEventListener('input', e => { S.n = +e.target.value; buildLines(); updateRail(); });
+$('c-d').addEventListener('input', e => {
+  S.delta = Math.pow(10, +e.target.value) * RAD;
+  buildLines(); updateRail(); drawCharts();
+});
+$('c-probe').addEventListener('input', e => {
+  S.probe = (+e.target.value) * RAD; buildProbe(); updateHUD(); updateRail(); drawCharts();
+});
+$('c-spin').addEventListener('change', e => { S.spin = e.target.checked; });
+$('c-grid').addEventListener('change', e => { S.grid = e.target.checked; if (wire) wire.visible = S.grid; });
+$('c-flip').addEventListener('change', e => { S.flip = e.target.checked; buildLines(); buildProbe(); drawCharts(); });
+$('c-reset').addEventListener('click', () => {
+  S.ratio = PHI; S.k = PHI; S.n = 8; S.delta = 2*RAD; S.probe = 90*RAD; S.flip = false;
+  $('c-ratio').value = PHI; $('c-k').value = PHI; $('c-n').value = 8;
+  $('c-d').value = Math.log10(2); $('c-probe').value = 90; $('c-flip').checked = false;
+  rebuildAll();
+});
+
+for (const id of ['chart-a','chart-b']){
+  const host = $(id);
+  host.style.cursor = 'crosshair';
+  host.addEventListener('pointermove', e => hoverToProbe(host, e));
+}
+$('c-spin').checked = S.spin;
+rebuildAll();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
