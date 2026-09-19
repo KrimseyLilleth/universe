@@ -19,3 +19,34 @@
   ## License
 
   MIT
+
+  ## Confined Vortex Pair
+
+  🌐 Live model: https://unifiedphysics.github.io/universe/magnetic-vortex-sphere.html
+
+  A magnetically confined sphere holding two counter-spinning vortices, with a
+  measured magnetic null between them.
+
+  The field is the sum of three divergence-free parts: two ring-shaped vortices
+  facing each other with the same polarity, an axisymmetric toroidal twist, and a
+  shell of inward-pointing elements that forms the confining cage (the ticks).
+  Because the two vortices oppose each other, their fields cancel along the middle
+  and leave a genuine magnetic null — the void. Its size is measured from the field
+  gradient each frame, not drawn in.
+
+  Particles are pushed by the full Lorentz force using the Boris integrator, so
+  they spiral along field lines, mirror off the cage and travel straight through
+  the void, where nothing holds them.
+
+  Auto-balance searches for the weakest cage that still contains the plasma, and
+  settles there. Cusp losses are refuelled at the vortex cores, so the
+  configuration stays live rather than simply decaying.
+
+  ### Controls
+
+  - Drag to rotate, scroll to zoom, right-click drag to pan
+  - Sliders for vortex strength, separation, swirl, cage strength, void threshold
+  - Counter-spin toggle: turn it off and the void collapses to about a tenth of
+    its width
+  - Paper mode for a pen-and-ink view
+  - Press S to hide panels, SPACE to pause

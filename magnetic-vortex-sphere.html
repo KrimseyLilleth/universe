@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confined Vortex Pair</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; overflow:hidden; font-family:Georgia, serif; color:#fff; }
+#container { width:100vw; height:100vh; }
+
+.panel {
+  position:absolute; background:rgba(0,0,0,0.88); padding:18px 20px;
+  border:1px solid #333; border-radius:10px; backdrop-filter:blur(4px);
+}
+#info { top:20px; left:20px; max-width:320px; }
+#info h1 { font-size:19px; font-style:italic; margin-bottom:4px; }
+#info .sub { font-size:10px; color:#666; letter-spacing:2px; text-transform:uppercase; margin-bottom:12px; }
+#info p { font-size:11.5px; line-height:1.65; color:#9a9a9a; margin-bottom:9px; }
+#info p b { color:#ddd; font-weight:normal; }
+#info .k { display:inline-block; width:9px; height:9px; border-radius:50%; vertical-align:middle;
+           margin-right:5px; margin-bottom:2px; }
+
+#readout { top:20px; right:20px; width:262px; font-family:'Courier New',monospace; }
+#readout h2 { font-size:10px; letter-spacing:2px; color:#666; text-transform:uppercase;
+              margin-bottom:12px; font-family:Georgia,serif; }
+.row { display:flex; justify-content:space-between; align-items:baseline;
+       font-size:11px; margin:7px 0; color:#777; }
+.row .v { color:#eee; font-size:12px; }
+.bar { height:3px; background:#1d1d1d; border-radius:2px; margin:3px 0 10px; overflow:hidden; }
+.bar i { display:block; height:100%; width:0%; background:#4ecdc4; transition:width .18s linear; }
+#balance { margin-top:14px; padding-top:12px; border-top:1px solid #2a2a2a; }
+#balance .state { font-family:Georgia,serif; font-style:italic; font-size:13px; }
+
+#controls { bottom:20px; left:20px; width:300px; font-size:11px; }
+#controls h2 { font-size:10px; letter-spacing:2px; color:#666; text-transform:uppercase;
+               margin-bottom:12px; font-family:Georgia,serif; }
+.ctl { margin:9px 0; }
+.ctl label { display:flex; justify-content:space-between; color:#8a8a8a; margin-bottom:3px; }
+.ctl label span { color:#ccc; font-family:'Courier New',monospace; }
+input[type=range]{ width:100%; height:3px; -webkit-appearance:none; appearance:none;
+  background:#262626; border-radius:2px; outline:none; }
+input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:12px; height:12px;
+  border-radius:50%; background:#ffd166; cursor:pointer; }
+input[type=range]::-moz-range-thumb{ width:12px; height:12px; border:none; border-radius:50%;
+  background:#ffd166; cursor:pointer; }
+.toggles { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-top:11px;
+           border-top:1px solid #2a2a2a; }
+.tg { font-size:10px; padding:4px 9px; border:1px solid #333; border-radius:12px;
+      color:#666; cursor:pointer; user-select:none; font-family:'Courier New',monospace; }
+.tg.on { color:#000; background:#ffd166; border-color:#ffd166; }
+#hint { position:absolute; bottom:20px; right:20px; font-size:10px; color:#3f3f3f;
+        text-align:right; line-height:1.8; }
+
+body.paper { background:#f4efe6; color:#1a1a1a; }
+body.paper .panel { background:rgba(244,239,230,0.92); border-color:#c9c0b0; }
+body.paper #info p { color:#5d564c; } body.paper #info p b { color:#1a1a1a; }
+body.paper #info .sub, body.paper #readout h2, body.paper #controls h2 { color:#8d8375; }
+body.paper .ctl label { color:#6b6357; }
+body.paper .ctl label span { color:#1a1a1a; }
+body.paper .row { color:#6b6357; } body.paper .row .v { color:#1a1a1a; }
+body.paper .bar { background:#ddd5c6; }
+body.paper .tg { border-color:#c9c0b0; color:#8d8375; }
+body.paper .tg.on { background:#1a1a1a; color:#f4efe6; border-color:#1a1a1a; }
+body.paper #hint { color:#b3a894; }
+body.paper input[type=range]{ background:#ddd5c6; }
+body.paper #balance { border-top-color:#ddd5c6; }
+body.paper .toggles { border-top-color:#ddd5c6; }
+</style>
+</head>
+<body>
+<div id="container"></div>
+
+<div id="info" class="panel">
+  <h1>Confined Vortex Pair</h1>
+  <div class="sub">magnetic null &middot; live simulation</div>
+  <p>Two counter-spinning vortices sit on a tilted axis inside a sphere. A cage of field
+     elements (the ticks) presses inward and holds everything in.</p>
+  <p><b>The void is not drawn.</b> The two vortices face each other with the same polarity,
+     so their fields cancel exactly along the middle. The simulation measures where the field
+     falls near zero and marks it. Nothing holds a particle there.</p>
+  <p><span class="k" style="background:#ffd166"></span><b>Gold</b> &mdash; strongly held particles<br>
+     <span class="k" style="background:#4ecdc4"></span><b>Cyan</b> &mdash; only just held<br>
+     <span class="k" style="background:#ff6b6b"></span><b>Red</b> &mdash; inside the void, flying free</p>
+  <p><b>Counter-spin is what holds it open.</b> The two vortices twist opposite ways,
+     so the twist cancels to zero in the middle (see <i>net twist</i>). Switch it off and
+     the void collapses to about a tenth of its width &mdash; the balance is doing real work.</p>
+  <p>&beta; compares how hard the plasma pushes out against how hard the cage pushes
+     in. It is shown relative to the balanced default, so <b>&beta; near 1</b> is the
+     balance point; well above 1 and the cage is losing.</p>
+  <p>Particles move by the real Lorentz force (Boris integrator). They are not following a
+     path I wrote for them &mdash; they spiral, mirror off the cage and drift straight through
+     the void because that is what the field does to them.</p>
+</div>
+
+<div id="readout" class="panel">
+  <h2>Live measurements</h2>
+  <div class="row"><span>contained</span><span class="v" id="r-conf">&mdash;</span></div>
+  <div class="bar"><i id="b-conf"></i></div>
+  <div class="row"><span>turnover</span><span class="v" id="r-loss">&mdash;</span></div>
+  <div class="row"><span>void volume</span><span class="v" id="r-void">&mdash;</span></div>
+  <div class="row"><span>null radius</span><span class="v" id="r-null">&mdash;</span></div>
+  <div class="bar"><i id="b-void" style="background:#ff6b6b"></i></div>
+  <div class="row"><span>net twist &lang;B&middot;&phi;&rang;</span><span class="v" id="r-spin">&mdash;</span></div>
+  <div class="row"><span>cage field |B|</span><span class="v" id="r-wall">&mdash;</span></div>
+  <div class="row"><span>pressure ratio &beta;</span><span class="v" id="r-beta">&mdash;</span></div>
+  <div class="bar"><i id="b-beta" style="background:#ffd166"></i></div>
+  <div id="balance">
+    <div class="row"><span>balance</span><span class="state" id="r-state">&mdash;</span></div>
+  </div>
+</div>
+
+<div id="controls" class="panel">
+  <h2>Controls</h2>
+  <div class="ctl"><label>vortex strength<span id="v-mom"></span></label>
+    <input type="range" id="s-mom" min="10" max="220" value="100"></div>
+  <div class="ctl"><label>vortex separation<span id="v-sep"></span></label>
+    <input type="range" id="s-sep" min="12" max="70" value="42"></div>
+  <div class="ctl"><label>swirl (toroidal twist)<span id="v-tw"></span></label>
+    <input type="range" id="s-tw" min="0" max="200" value="85"></div>
+  <div class="ctl"><label>cage strength<span id="v-conf"></span></label>
+    <input type="range" id="s-conf" min="0" max="320" value="100"></div>
+  <div class="ctl"><label>void threshold |B|<span id="v-vt"></span></label>
+    <input type="range" id="s-vt" min="2" max="120" value="30"></div>
+  <div class="ctl"><label>particles<span id="v-np"></span></label>
+    <input type="range" id="s-np" min="500" max="14000" value="5000" step="500"></div>
+  <div class="toggles">
+    <div class="tg on" id="t-auto">auto-balance</div>
+    <div class="tg on" id="t-counter">counter-spin</div>
+    <div class="tg on" id="t-lines">field lines</div>
+    <div class="tg on" id="t-void">void</div>
+    <div class="tg on" id="t-cage">cage</div>
+    <div class="tg on" id="t-run">running</div>
+    <div class="tg" id="t-paper">paper</div>
+  </div>
+</div>
+
+<div id="hint">
+  drag to rotate &middot; scroll to zoom &middot; right-drag to pan<br>
+  <span style="color:#2e2e2e">S hides panels &middot; SPACE pauses</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================================
+   CONFINED VORTEX PAIR
+   A magnetically confined plasma sphere with two counter-rotating vortices
+   and an emergent magnetic null ("void") between them.
+
+   The magnetic field is the sum of three divergence-free pieces:
+     1. two anti-aligned point dipoles  -> the vortex cores, and the null
+        between them (this is what creates the void; it is not painted on)
+     2. an axisymmetric toroidal field  -> the swirl / spiral winding
+     3. a shell of inward-pointing dipole elements -> the confining cage,
+        precomputed onto a grid and trilinearly interpolated
+
+   Particles are pushed by the full Lorentz force with the Boris algorithm,
+   the standard integrator in particle-in-cell plasma codes. It conserves
+   speed exactly in a static magnetic field, so the "reaction" stays live
+   without any artificial energy injection.
+   ============================================================================ */
+
+// ---------------------------------------------------------------- constants
+const R_SPHERE = 1.0;         // radius of the contained volume
+const R_CAGE   = 1.25;        // radius of the confining shell
+const R_ESCAPE = 1.48;        // past this, a particle counts as lost
+const AXIS     = new THREE.Vector3(0.86, 0.45, 0.24).normalize(); // tilt in the drawing
+const E1 = new THREE.Vector3(0,1,0).cross(AXIS).normalize();          // frame across the axis
+const E2 = new THREE.Vector3().crossVectors(AXIS, E1).normalize();
+
+// Each vortex is not a single point magnet but a small RING of magnets, like a
+// current loop. A point dipole falls off as 1/r^3 and stays a tight knot; a ring
+// has an extended near field, so its lines sweep out across the whole sphere the
+// way the drawing shows. A sum of dipoles is still exactly divergence-free.
+const RING_K = 7, RING_R = 0.17;
+const SUBS = [];
+(function () {
+  SUBS.push({ o: new THREE.Vector3(0,0,0), w: 0.34 });
+  for (let k = 0; k < RING_K; k++) {
+    const th = (k/RING_K)*Math.PI*2;
+    SUBS.push({ o: new THREE.Vector3()
+        .addScaledVector(E1, Math.cos(th)*RING_R)
+        .addScaledVector(E2, Math.sin(th)*RING_R), w: 0.66/RING_K });
+  }
+})();
+
+const GRID_N = 42;            // cage field map resolution (per side)
+const GRID_G = 1.62;          // cage field map half-extent
+const N_CAGE = 54;            // number of cage elements (the tick marks)
+
+const P = {                   // live parameters, driven by the sliders
+  moment:0.050, sep:0.42, twist:0.85, counter:true,
+  conf:1.00, voidThresh:0.30, nPart:5000,
+  auto:true, run:true, showLines:true, showVoid:true, showCage:true, paper:false
+};
+
+const QM  = 8.0;              // charge-to-mass ratio (sets gyro-radius)
+const VTH = 0.36;             // thermal speed of the particles
+let   GAIN = 1.0;             // global normalisation so mean interior |B| = 1
+
+// ---------------------------------------------------------------- scene
+const container = document.getElementById('container');
+const scene    = new THREE.Scene();
+const camera   = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.01, 100);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x000000);
+container.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 0.6); key.position.set(2,3,2); scene.add(key);
+
+// ---------------------------------------------------------------- cage field map
+// Every cage element is a point dipole whose moment points inward. A symmetric
+// shell of these sums to (almost) nothing at the centre and to a strong field
+// near the shell: a magnetic wall. Summing 54 dipoles per particle per frame
+// would be slow, so the cage is baked once onto a grid and interpolated.
+let cageEls = [];
+let cageGrid = null;
+
+function buildCage() {
+  cageEls = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let j = 0; j < N_CAGE; j++) {
+    const y  = 1 - 2*(j + 0.5)/N_CAGE;
+    const rr = Math.sqrt(Math.max(0, 1 - y*y));
+    const th = golden * j;
+    const n  = new THREE.Vector3(Math.cos(th)*rr, y, Math.sin(th)*rr);
+    cageEls.push({ pos: n.clone().multiplyScalar(R_CAGE), n: n.clone(), m: 0.012 });
+  }
+
+  const N = GRID_N, step = (2*GRID_G)/(N-1);
+  cageGrid = new Float32Array(N*N*N*3);
+  const p = new THREE.Vector3(), r = new THREE.Vector3();
+  const soft = 0.14*0.14;
+  let i = 0;
+  for (let iz = 0; iz < N; iz++) {
+    p.z = -GRID_G + iz*step;
+    for (let iy = 0; iy < N; iy++) {
+      p.y = -GRID_G + iy*step;
+      for (let ix = 0; ix < N; ix++) {
+        p.x = -GRID_G + ix*step;
+        let bx = 0, by = 0, bz = 0;
+        for (let e = 0; e < cageEls.length; e++) {
+          const el = cageEls[e];
+          r.subVectors(p, el.pos);
+          const r2 = r.lengthSq() + soft, r1 = Math.sqrt(r2), r3 = r2*r1;
+          const inv = 1/r1;
+          const hx = r.x*inv, hy = r.y*inv, hz = r.z*inv;
+          // moment = -m * n  (points inward)
+          const mx = -el.m*el.n.x, my = -el.m*el.n.y, mz = -el.m*el.n.z;
+          const md = mx*hx + my*hy + mz*hz;
+          bx += (3*md*hx - mx)/r3;
+          by += (3*md*hy - my)/r3;
+          bz += (3*md*hz - mz)/r3;
+        }
+        cageGrid[i++] = bx; cageGrid[i++] = by; cageGrid[i++] = bz;
+      }
+    }
+  }
+}
+
+const _cg = new THREE.Vector3();
+function cageAt(p, out) {
+  const N = GRID_N, step = (2*GRID_G)/(N-1);
+  const fx = (p.x + GRID_G)/step, fy = (p.y + GRID_G)/step, fz = (p.z + GRID_G)/step;
+  if (fx < 0 || fy < 0 || fz < 0 || fx > N-1.001 || fy > N-1.001 || fz > N-1.001) {
+    out.set(0,0,0); return out;                       // outside the map
+  }
+  const x0 = fx|0, y0 = fy|0, z0 = fz|0;
+  const tx = fx-x0, ty = fy-y0, tz = fz-z0;
+  let ox = 0, oy = 0, oz = 0;
+  for (let c = 0; c < 8; c++) {
+    const dx = c&1, dy = (c>>1)&1, dz = (c>>2)&1;
+    const w = (dx?tx:1-tx)*(dy?ty:1-ty)*(dz?tz:1-tz);
+    const k = (((z0+dz)*N + (y0+dy))*N + (x0+dx))*3;
+    ox += w*cageGrid[k]; oy += w*cageGrid[k+1]; oz += w*cageGrid[k+2];
+  }
+  out.set(ox, oy, oz);
+  return out;
+}
+
+// ---------------------------------------------------------------- total field
+const _r = new THREE.Vector3(), _rho = new THREE.Vector3(), _phi = new THREE.Vector3();
+
+function fieldAt(p, out) {
+  let bx = 0, by = 0, bz = 0;
+  const soft = 0.095*0.095;
+
+  // --- 1. the two anti-aligned dipoles -------------------------------------
+  // Same polarity faces the centre, so the two fields cancel there exactly.
+  // That cancellation IS the void.
+  for (let i = 0; i < 2; i++) {
+    const s = i === 0 ? 1 : -1;
+    const cx = s*P.sep*AXIS.x, cy = s*P.sep*AXIS.y, cz = s*P.sep*AXIS.z;
+    for (let k = 0; k < SUBS.length; k++) {
+      const sub = SUBS[k];
+      _r.set(p.x - cx - sub.o.x, p.y - cy - sub.o.y, p.z - cz - sub.o.z);
+      const r2 = _r.lengthSq() + soft, r1 = Math.sqrt(r2), r3 = r2*r1, inv = 1/r1;
+      const hx = _r.x*inv, hy = _r.y*inv, hz = _r.z*inv;
+      const mm = s*P.moment*sub.w;
+      const mx = mm*AXIS.x, my = mm*AXIS.y, mz = mm*AXIS.z;
+      const md = mx*hx + my*hy + mz*hz;
+      bx += (3*md*hx - mx)/r3;
+      by += (3*md*hy - my)/r3;
+      bz += (3*md*hz - mz)/r3;
+    }
+  }
+
+  // --- 2. toroidal swirl ----------------------------------------------------
+  // Any field of the form g(rho, z) * phi-hat is exactly divergence-free.
+  // With counter-spin, g flips sign through the mid-plane, so the swirl also
+  // vanishes in the void -- the two vortices leave the middle genuinely empty.
+  const z = p.x*AXIS.x + p.y*AXIS.y + p.z*AXIS.z;
+  _rho.set(p.x - z*AXIS.x, p.y - z*AXIS.y, p.z - z*AXIS.z);
+  const rho = _rho.length();
+  if (rho > 1e-7) {
+    _phi.crossVectors(AXIS, _rho).multiplyScalar(1/rho);
+    const rr = p.length();
+    const sgn = P.counter ? Math.tanh(z/0.18) : 1.0;
+    const g = P.twist * P.moment * 62 * sgn
+            * (rho/(rho*rho + 0.045))
+            * Math.exp(-Math.pow(rr/0.95, 4));
+    bx += _phi.x*g; by += _phi.y*g; bz += _phi.z*g;
+  }
+
+  // --- 3. the confining cage ------------------------------------------------
+  cageAt(p, _cg);
+  bx += _cg.x*P.conf; by += _cg.y*P.conf; bz += _cg.z*P.conf;
+
+  out.set(bx*GAIN, by*GAIN, bz*GAIN);
+  return out;
+}
+
+// normalise once, with default parameters, so |B| ~ 1 in the bulk
+function calibrate() {
+  GAIN = 1.0;
+  const p = new THREE.Vector3(), b = new THREE.Vector3(), vals = [];
+  for (let i = 0; i < 6000; i++) {
+    p.set(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1);
+    if (p.length() > R_SPHERE) continue;
+    fieldAt(p, b); vals.push(b.length());
+  }
+  vals.sort((a, c) => a - c);
+  const med = vals.length ? vals[vals.length >> 1] : 1;
+  GAIN = med > 1e-9 ? 1/med : 1;
+}
+
+// ---------------------------------------------------------------- geometry: shell + cage
+const shell = new THREE.Mesh(
+  new THREE.SphereGeometry(R_SPHERE, 64, 48),
+  new THREE.MeshPhongMaterial({ color:0x8899bb, transparent:true, opacity:0.045,
+                                shininess:8, side:THREE.DoubleSide, depthWrite:false })
+);
+scene.add(shell);
+
+const shellWire = new THREE.LineSegments(
+  new THREE.WireframeGeometry(new THREE.SphereGeometry(R_SPHERE, 26, 18)),
+  new THREE.LineBasicMaterial({ color:0x2a3242, transparent:true, opacity:0.5 })
+);
+scene.add(shellWire);
+
+// the tick marks: one per cage element, length modulated by the field it carries
+let cageTicks = null;
+function buildTicks() {
+  if (cageTicks) { scene.remove(cageTicks); cageTicks.geometry.dispose(); }
+  const pos = new Float32Array(cageEls.length*6);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  cageTicks = new THREE.LineSegments(geo,
+    new THREE.LineBasicMaterial({ color:0x4ecdc4, transparent:true, opacity:0.85 }));
+  scene.add(cageTicks);
+}
+function updateTicks(t) {
+  if (!cageTicks) return;
+  const a = cageTicks.geometry.attributes.position.array;
+  for (let j = 0; j < cageEls.length; j++) {
+    const n = cageEls[j].n;
+    const pulse = 0.5 + 0.5*Math.sin(t*1.6 + j*0.7);
+    const inner = R_CAGE*0.99;
+    const outer = R_CAGE + (0.055 + 0.085*pulse) * Math.min(2.2, P.conf);
+    const k = j*6;
+    a[k]   = n.x*inner; a[k+1] = n.y*inner; a[k+2] = n.z*inner;
+    a[k+3] = n.x*outer; a[k+4] = n.y*outer; a[k+5] = n.z*outer;
+  }
+  cageTicks.geometry.attributes.position.needsUpdate = true;
+}
+
+// the axis bar joining the two vortex cores, through the void
+const axisBar = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.009, 0.009, 1, 12, 1, true),
+  new THREE.MeshBasicMaterial({ color:0x8b7bf0, transparent:true, opacity:0.55,
+                                depthWrite:false })
+);
+axisBar.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), AXIS);
+scene.add(axisBar);
+
+const coreMat = new THREE.MeshBasicMaterial({ color:0xffd166, transparent:true, opacity:0.9 });
+const coreA = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), coreMat);
+const coreB = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), coreMat);
+scene.add(coreA, coreB);
+
+// the null marker: sized from the *measured* extent of the void, not assumed
+const nullBlob = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 24, 18),
+  new THREE.MeshBasicMaterial({ color:0x140d22, transparent:true, opacity:0.82 })
+);
+const nullRim = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 24, 18),
+  new THREE.MeshBasicMaterial({ color:0xff6b6b, transparent:true, opacity:0.16,
+                                side:THREE.BackSide, depthWrite:false })
+);
+scene.add(nullBlob, nullRim);
+
+function updateCores() {
+  const a = AXIS.clone().multiplyScalar( P.sep);
+  const b = AXIS.clone().multiplyScalar(-P.sep);
+  coreA.position.copy(a); coreB.position.copy(b);
+  axisBar.position.set(0,0,0);
+  axisBar.scale.set(1, P.sep*2, 1);
+}
+
+// ---------------------------------------------------------------- field lines
+// Traced by RK4 along B-hat from seeds ringing each vortex core, then coloured
+// by local field strength. These are streamlines of the real field, not splines.
+let fieldLines = null;
+const LINE_STEPS = 460, LINE_H = 0.011;
+
+function traceLines() {
+  if (fieldLines) { scene.remove(fieldLines); fieldLines.geometry.dispose(); }
+  const pts = [], cols = [];
+  const b = new THREE.Vector3(), k1 = new THREE.Vector3(), k2 = new THREE.Vector3(),
+        k3 = new THREE.Vector3(), k4 = new THREE.Vector3(), tmp = new THREE.Vector3();
+  const unit = (v, o) => { const L = v.length(); return L > 1e-9 ? o.copy(v).multiplyScalar(1/L) : o.set(0,0,0); };
+
+  const e1 = E1, e2 = E2;
+  const RINGS = [0.14, 0.24, 0.36], PER_RING = 7;
+  for (let core = 0; core < 2; core++) {
+    const s = core === 0 ? 1 : -1;
+    const origin = AXIS.clone().multiplyScalar(s*P.sep);
+    for (let ri = 0; ri < RINGS.length; ri++) {
+      for (let a = 0; a < PER_RING; a++) {
+        const th = (a/PER_RING)*Math.PI*2 + ri*0.4;
+        const seed = origin.clone()
+          .addScaledVector(e1, Math.cos(th)*RINGS[ri])
+          .addScaledVector(e2, Math.sin(th)*RINGS[ri])
+          .addScaledVector(AXIS, s*RINGS[ri]*0.55);
+
+        for (let dir = -1; dir <= 1; dir += 2) {
+          const p = seed.clone();
+          let prev = null;
+          for (let st = 0; st < LINE_STEPS; st++) {
+            unit(fieldAt(p, b), k1);
+            unit(fieldAt(tmp.copy(p).addScaledVector(k1, dir*LINE_H*0.5), b), k2);
+            unit(fieldAt(tmp.copy(p).addScaledVector(k2, dir*LINE_H*0.5), b), k3);
+            unit(fieldAt(tmp.copy(p).addScaledVector(k3, dir*LINE_H    ), b), k4);
+            const mag = fieldAt(p, b).length();
+            tmp.set((k1.x+2*k2.x+2*k3.x+k4.x)/6,
+                    (k1.y+2*k2.y+2*k3.y+k4.y)/6,
+                    (k1.z+2*k2.z+2*k3.z+k4.z)/6);
+            if (tmp.lengthSq() < 1e-12) break;
+            p.addScaledVector(tmp, dir*LINE_H);
+            if (p.length() > R_CAGE*1.02) break;
+
+            if (prev) {
+              // colour: gold where the field grips hard, fading to red in the void
+              let cr, cg, cb;
+              if (mag < P.voidThresh) { cr=1.00; cg=0.36; cb=0.38; }
+              else {
+                const t = Math.min(1, Math.log(mag/P.voidThresh)/Math.log(8));
+                cr = 0.31 + 0.69*t; cg = 0.80 + 0.02*t; cb = 0.77 - 0.37*t;
+              }
+              const fade = 0.25 + 0.75*Math.min(1, mag/1.2);
+              pts.push(prev.x, prev.y, prev.z, p.x, p.y, p.z);
+              cols.push(cr*fade, cg*fade, cb*fade, cr*fade, cg*fade, cb*fade);
+            }
+            prev = prev ? prev.copy(p) : p.clone();
+          }
+        }
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  geo.setAttribute('color',    new THREE.Float32BufferAttribute(cols, 3));
+  fieldLines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+    vertexColors:true, transparent:true, opacity:0.22, blending:THREE.AdditiveBlending,
+    depthWrite:false }));
+  fieldLines.visible = P.showLines;
+  scene.add(fieldLines);
+}
+
+// ---------------------------------------------------------------- void scan
+// Sweep a grid through the sphere and keep every cell where |B| falls below
+// the threshold. That set of cells IS the void: the part of the volume the
+// magnetic field does not reach. Its size is measured, never assumed.
+const VOID_N = 40;
+let netTwist = 0;
+let voidCloud = null, voidFrac = 0, nullFrac = 0, voidRmsPar = 0.1, voidRmsPerp = 0.1;
+
+function buildVoidCloud() {
+  if (voidCloud) { scene.remove(voidCloud); voidCloud.geometry.dispose(); }
+  voidCloud = new THREE.Points(new THREE.BufferGeometry(),
+    new THREE.PointsMaterial({ color:0x7d5cf0, size:0.011, transparent:true,
+                               opacity:0.20, sizeAttenuation:true, depthWrite:false }));
+  voidCloud.visible = P.showVoid;
+  scene.add(voidCloud);
+}
+
+const _np = new THREE.Vector3(), _nb = new THREE.Vector3();
+function measureNull() {
+  const h = 0.02, R3 = R_SPHERE*R_SPHERE*R_SPHERE;
+  _np.copy(AXIS).multiplyScalar(h);
+  const gPar  = fieldAt(_np, _nb).length()/h;
+  _np.copy(E1).multiplyScalar(h);
+  const gPerpA = fieldAt(_np, _nb).length()/h;
+  _np.copy(E2).multiplyScalar(h);
+  const gPerpB = fieldAt(_np, _nb).length()/h;
+  const gPerp = 0.5*(gPerpA + gPerpB);
+  voidRmsPar  = gPar  > 1e-6 ? Math.min(P.sep, P.voidThresh/gPar)  : P.sep;
+  voidRmsPerp = gPerp > 1e-6 ? Math.min(P.sep, P.voidThresh/gPerp) : P.sep;
+  nullFrac = (voidRmsPar*voidRmsPerp*voidRmsPerp)/R3;   // ellipsoid / sphere
+}
+
+function scanVoid() {
+  const N = VOID_N, step = (2*R_SPHERE)/(N-1);
+  const p = new THREE.Vector3(), b = new THREE.Vector3();
+  const pts = [];
+  let inside = 0, voidCells = 0;
+  let twistSum = 0, magSum = 0;
+  const _tz = new THREE.Vector3(), _tp = new THREE.Vector3();
+  for (let iz = 0; iz < N; iz++) {
+    p.z = -R_SPHERE + iz*step;
+    for (let iy = 0; iy < N; iy++) {
+      p.y = -R_SPHERE + iy*step;
+      for (let ix = 0; ix < N; ix++) {
+        p.x = -R_SPHERE + ix*step;
+        if (p.lengthSq() > R_SPHERE*R_SPHERE) continue;
+        inside++;
+        fieldAt(p, b);
+        const za = p.dot(AXIS);
+        _tz.set(p.x - za*AXIS.x, p.y - za*AXIS.y, p.z - za*AXIS.z);
+        const rh = _tz.length();
+        if (rh > 1e-6) {
+          _tp.crossVectors(AXIS, _tz).multiplyScalar(1/rh);   // phi-hat
+          twistSum += b.dot(_tp);
+        }
+        magSum += b.length();
+        if (b.length() < P.voidThresh) {
+          voidCells++;
+          pts.push(p.x, p.y, p.z);
+        }
+      }
+    }
+  }
+  voidFrac = inside ? voidCells/inside : 0;
+  netTwist = magSum > 1e-9 ? twistSum/magSum : 0;
+  measureNull();
+
+  voidCloud.geometry.dispose();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  voidCloud.geometry = g;
+
+  // the marker IS the measured null: radius where |B| reaches the threshold
+  const sx = Math.max(0.012, voidRmsPerp);
+  const sz = Math.max(0.012, voidRmsPar);
+  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), AXIS);
+  nullBlob.quaternion.copy(q); nullBlob.scale.set(sx, sz, sx);
+  nullRim.quaternion.copy(q);  nullRim.scale.set(sx*1.22, sz*1.22, sx*1.22);
+  nullBlob.visible = nullRim.visible = P.showVoid && nullFrac > 1e-6;
+}
+
+// ---------------------------------------------------------------- particles
+// Streaks: each particle is drawn as a short segment from where it was to
+// where it is, so motion reads directly.
+const _sb = new THREE.Vector3();
+let pPos, pVel, pCol, pAge, streaks = null, heads = null;
+let hPos, hCol;
+let escapedTotal = 0, escapeWindow = 0, confinedFrac = 1;
+
+function spawn(i, uniform) {
+  const u = new THREE.Vector3(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1).normalize();
+  let o;
+  if (uniform) {
+    // Fill the sphere evenly, but only where the field is actually able to hold
+    // something -- dropping particles into a weak-field pocket just throws them
+    // straight out and tells you nothing.
+    o = new THREE.Vector3();
+    for (let a = 0; a < 24; a++) {
+      o.copy(u).multiplyScalar(0.80*R_SPHERE*Math.cbrt(Math.random()));
+      if (fieldAt(o, _sb).length() > P.voidThresh*2.0) break;
+      u.set(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1).normalize();
+    }
+  } else {
+    // refuelled at a vortex core, where a real reaction would be fed
+    const s = Math.random() < 0.5 ? 1 : -1;
+    o = AXIS.clone().multiplyScalar(s*P.sep).addScaledVector(u, 0.05 + Math.random()*0.16);
+  }
+  pPos[i*6+0]=o.x; pPos[i*6+1]=o.y; pPos[i*6+2]=o.z;   // previous
+  pPos[i*6+3]=o.x; pPos[i*6+4]=o.y; pPos[i*6+5]=o.z;   // current
+  const v = new THREE.Vector3(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1)
+              .normalize().multiplyScalar(VTH*(0.7+0.6*Math.random()));
+  pVel[i*3+0]=v.x; pVel[i*3+1]=v.y; pVel[i*3+2]=v.z;
+  pAge[i]=0;
+}
+
+function buildParticles() {
+  if (streaks) { scene.remove(streaks); streaks.geometry.dispose(); }
+  const n = P.nPart;
+  pPos = new Float32Array(n*6);
+  pVel = new Float32Array(n*3);
+  pCol = new Float32Array(n*6);
+  pAge = new Float32Array(n);
+  for (let i = 0; i < n; i++) spawn(i, true);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(pCol, 3));
+  streaks = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+    vertexColors:true, transparent:true, opacity:0.55,
+    blending:THREE.AdditiveBlending, depthWrite:false }));
+  scene.add(streaks);
+
+  if (heads) { scene.remove(heads); heads.geometry.dispose(); }
+  hPos = new Float32Array(n*3);
+  hCol = new Float32Array(n*3);
+  const hg = new THREE.BufferGeometry();
+  hg.setAttribute('position', new THREE.BufferAttribute(hPos, 3));
+  hg.setAttribute('color',    new THREE.BufferAttribute(hCol, 3));
+  heads = new THREE.Points(hg, new THREE.PointsMaterial({
+    size:0.017, vertexColors:true, transparent:true, opacity:0.95,
+    sizeAttenuation:true, blending:THREE.AdditiveBlending, depthWrite:false }));
+  scene.add(heads);
+}
+
+// --- Boris push -------------------------------------------------------------
+// The standard PIC integrator. Rotates velocity about B by exactly the right
+// angle each step, so speed is conserved to machine precision in a static
+// magnetic field. Sub-stepped where the field is strong so the gyration
+// stays resolved.
+const _b = new THREE.Vector3(), _pp = new THREE.Vector3();
+let wallB = 0, betaVal = 0, simTime = 0;
+
+function stepParticles(dt) {
+  const n = P.nPart;
+  let confined = 0, kin = 0, wallSum = 0, wallN = 0;
+  let escapedThisFrame = 0;
+
+  for (let i = 0; i < n; i++) {
+    const a = i*6, c = i*3;
+    let x = pPos[a+3], y = pPos[a+4], z = pPos[a+5];
+    let vx = pVel[c], vy = pVel[c+1], vz = pVel[c+2];
+
+    _pp.set(x, y, z);
+    fieldAt(_pp, _b);
+    let Bm = _b.length();
+
+    // keep omega_c * dt below ~0.2
+    let nsub = Math.min(12, Math.max(1, Math.ceil(QM*Bm*dt/0.20)));
+    const h = dt/nsub;
+
+    for (let s = 0; s < nsub; s++) {
+      _pp.set(x, y, z);
+      fieldAt(_pp, _b);
+      Bm = _b.length();
+      const tx = QM*_b.x*h*0.5, ty = QM*_b.y*h*0.5, tz = QM*_b.z*h*0.5;
+      const t2 = tx*tx + ty*ty + tz*tz;
+      const sc = 2/(1 + t2);
+      // v' = v + v x t
+      const px = vx + (vy*tz - vz*ty);
+      const py = vy + (vz*tx - vx*tz);
+      const pz = vz + (vx*ty - vy*tx);
+      // v+ = v + v' x s
+      vx += (py*tz - pz*ty)*sc;
+      vy += (pz*tx - px*tz)*sc;
+      vz += (px*ty - py*tx)*sc;
+      x += vx*h; y += vy*h; z += vz*h;
+    }
+
+    const rr = Math.sqrt(x*x + y*y + z*z);
+    if (rr > R_ESCAPE) { escapedTotal++; escapedThisFrame++; spawn(i); continue; }
+
+    pPos[a+0] = pPos[a+3]; pPos[a+1] = pPos[a+4]; pPos[a+2] = pPos[a+5];
+    pPos[a+3] = x; pPos[a+4] = y; pPos[a+5] = z;
+    pVel[c] = vx; pVel[c+1] = vy; pVel[c+2] = vz;
+    pAge[i] += dt;
+
+    if (rr < R_SPHERE) confined++;
+    const v2 = vx*vx + vy*vy + vz*vz;
+    kin += v2;
+    if (rr > R_SPHERE*0.88 && rr < R_CAGE) { wallSum += Bm; wallN++; }
+
+    // colour by how tightly the field is holding this particle
+    let cr, cg, cb;
+    if (Bm < P.voidThresh) { cr=1.00; cg=0.32; cb=0.34; }        // free: inside the void
+    else {
+      const t = Math.min(1, Math.log(Bm/P.voidThresh)/Math.log(8));
+      cr = 0.31 + 0.69*t; cg = 0.80 + 0.02*t; cb = 0.77 - 0.37*t;
+    }
+    if (P.paper) { cr *= 0.40; cg *= 0.38; cb *= 0.44; }
+    const k = i*6;
+    pCol[k+0]=cr*0.20; pCol[k+1]=cg*0.20; pCol[k+2]=cb*0.20;     // tail dim
+    pCol[k+3]=cr*0.8;  pCol[k+4]=cg*0.8;  pCol[k+5]=cb*0.8;      // head bright
+    hPos[c]=x; hPos[c+1]=y; hPos[c+2]=z;
+    hCol[c]=cr; hCol[c+1]=cg; hCol[c+2]=cb;
+  }
+
+  streaks.geometry.attributes.position.needsUpdate = true;
+  streaks.geometry.attributes.color.needsUpdate    = true;
+  heads.geometry.attributes.position.needsUpdate   = true;
+  heads.geometry.attributes.color.needsUpdate      = true;
+
+  confinedFrac = confined/n;
+  wallB   = wallN ? wallSum/wallN : 0;
+  if (dt > 1e-6) escapeWindow = escapeWindow*0.92 + (escapedThisFrame/dt)*0.08;
+
+  // beta = plasma pressure / magnetic pressure at the wall.
+  // beta > 1 means the plasma is pushing harder than the cage is holding.
+  // Both pressures are noisy frame to frame, so carry a running average.
+  const pPlasma = (kin/n) * (n/5000) * 0.5;
+  const pMag    = 0.5*wallB*wallB;
+  const raw = pMag > 1e-6 ? pPlasma/pMag : 99;
+  betaVal = betaVal ? betaVal*0.97 + raw*0.03 : raw;
+}
+
+// ---------------------------------------------------------------- balance controller
+// Auto-balance hunts for the *weakest* cage that still holds the reaction:
+// squeeze harder while particles are escaping, ease off when they are not.
+// The equilibrium it finds is the balance point -- strong enough to contain,
+// gentle enough that the void between the vortices stays open.
+let BETA_SCALE = 0, balanceState = 'settling';
+
+const CONF_MIN = 0.12, CONF_MAX = 3.2, HOLD_TARGET = 0.955;
+let cuspLimited = false;
+
+function autoBalance(dt) {
+  if (!P.auto) return;
+  const err = HOLD_TARGET - confinedFrac;          // positive => losing too many
+  P.conf += (err > 0 ? 2.4 : 0.55) * err * dt;     // squeeze fast, release slowly
+  P.conf = Math.max(CONF_MIN, Math.min(CONF_MAX, P.conf));
+  // pinned at full strength and still bleeding: the cusps are the limit, not the cage
+  cuspLimited = (P.conf >= CONF_MAX - 1e-3) && (confinedFrac < HOLD_TARGET - 0.03);
+  document.getElementById('s-conf').value = Math.round(P.conf*100);
+  document.getElementById('v-conf').textContent = P.conf.toFixed(2);
+}
+
+function classify() {
+  if (nullFrac < 2e-5)            return ['void collapsed',  '#ff6b6b'];
+  if (confinedFrac < 0.70)        return ['breaking up',     '#ff6b6b'];
+  if (cuspLimited)                return ['cusp-limited',    '#ffd166'];
+  if (confinedFrac < 0.90)        return ['leaking',         '#ffd166'];
+  if (P.conf > 2.7)               return ['over-confined',   '#ffd166'];
+  return ['self-sustaining', '#00ff88'];
+}
+
+// ---------------------------------------------------------------- camera
+let rotX = 0.24, rotY = 0.70, dist = 4.30;
+const target = new THREE.Vector3();
+let dragging = false, panning = false, px = 0, py = 0;
+
+function updateCamera() {
+  const cy = Math.cos(rotX), sy = Math.sin(rotX);
+  camera.position.set(
+    target.x + dist*cy*Math.sin(rotY),
+    target.y + dist*sy,
+    target.z + dist*cy*Math.cos(rotY)
+  );
+  camera.lookAt(target);
+}
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('mousedown', e => {
+  if (e.target.closest('.panel')) return;
+  if (e.button === 2) panning = true; else dragging = true;
+  px = e.clientX; py = e.clientY;
+});
+document.addEventListener('mouseup', () => { dragging = false; panning = false; });
+document.addEventListener('mousemove', e => {
+  const dx = e.clientX - px, dy = e.clientY - py;
+  px = e.clientX; py = e.clientY;
+  if (dragging) {
+    rotY -= dx*0.005;
+    rotX = Math.max(-1.45, Math.min(1.45, rotX + dy*0.005));
+  } else if (panning) {
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+    const up    = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+    target.addScaledVector(right, -dx*dist*0.0012).addScaledVector(up, dy*dist*0.0012);
+  }
+});
+document.addEventListener('wheel', e => {
+  if (e.target.closest('.panel')) return;
+  dist = Math.max(1.2, Math.min(9, dist*(1 + Math.sign(e.deltaY)*0.08)));
+}, {passive:true});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------------------------------------------------------------- theme
+function applyTheme() {
+  document.body.classList.toggle('paper', P.paper);
+  if (P.paper) {
+    renderer.setClearColor(0xf4efe6);
+    shell.material.color.setHex(0x9aa4b4); shell.material.opacity = 0.10;
+    shellWire.material.color.setHex(0xbdb3a2); shellWire.material.opacity = 0.7;
+    if (cageTicks) cageTicks.material.color.setHex(0x2f3a44);
+    axisBar.material.color.setHex(0x4a3a7c);
+    coreMat.color.setHex(0x6b5320);
+    nullBlob.material.color.setHex(0x1a1426); nullBlob.material.opacity = 0.88;
+    nullRim.material.opacity = 0.05;
+    if (voidCloud) { voidCloud.material.color.setHex(0x5a3fd0); voidCloud.material.opacity = 0.35; }
+    if (fieldLines) { fieldLines.material.blending = THREE.NormalBlending;
+                      fieldLines.material.color.setHex(0x555566);
+                      fieldLines.material.opacity = 0.42; fieldLines.material.needsUpdate = true; }
+    streaks.material.blending = THREE.NormalBlending;
+    streaks.material.color.setHex(0xffffff);
+    streaks.material.needsUpdate = true;
+    heads.material.blending = THREE.NormalBlending;
+    heads.material.color.setHex(0xffffff);
+    heads.material.needsUpdate = true;
+  } else {
+    renderer.setClearColor(0x000000);
+    shell.material.color.setHex(0x8899bb); shell.material.opacity = 0.045;
+    shellWire.material.color.setHex(0x2a3242); shellWire.material.opacity = 0.5;
+    if (cageTicks) cageTicks.material.color.setHex(0x4ecdc4);
+    axisBar.material.color.setHex(0x8b7bf0);
+    coreMat.color.setHex(0xffd166);
+    nullBlob.material.color.setHex(0x140d22); nullBlob.material.opacity = 0.82;
+    nullRim.material.opacity = 0.11;
+    if (voidCloud) { voidCloud.material.color.setHex(0x7d5cf0); voidCloud.material.opacity = 0.20; }
+    if (fieldLines) { fieldLines.material.blending = THREE.AdditiveBlending;
+                      fieldLines.material.color.setHex(0xffffff);
+                      fieldLines.material.opacity = 0.22; fieldLines.material.needsUpdate = true; }
+    streaks.material.blending = THREE.AdditiveBlending;
+    streaks.material.color.setHex(0xffffff);
+    streaks.material.needsUpdate = true;
+    heads.material.blending = THREE.AdditiveBlending;
+    heads.material.color.setHex(0xffffff);
+    heads.material.needsUpdate = true;
+  }
+}
+
+// ---------------------------------------------------------------- UI wiring
+let dirtyField = false, dirtyVoid = false, lastInput = 0, lastTraceConf = 1;
+
+function bind(sliderId, labelId, fmt, apply, heavy) {
+  const s = document.getElementById(sliderId), l = document.getElementById(labelId);
+  const sync = () => {
+    apply(+s.value);
+    l.textContent = fmt(+s.value);
+    lastInput = performance.now();
+    dirtyVoid = true;
+    if (heavy) dirtyField = true;
+  };
+  s.addEventListener('input', sync);
+  sync();
+}
+
+bind('s-mom',  'v-mom',  v => (v/100).toFixed(2), v => P.moment = 0.05*(v/100), true);
+bind('s-sep',  'v-sep',  v => (v/100).toFixed(2), v => { P.sep = v/100; updateCores(); }, true);
+bind('s-tw',   'v-tw',   v => (v/100).toFixed(2), v => P.twist = v/100, true);
+bind('s-conf', 'v-conf', v => (v/100).toFixed(2), v => P.conf = v/100, true);
+bind('s-vt',   'v-vt',   v => (v/100).toFixed(2), v => P.voidThresh = v/100, false);
+bind('s-np',   'v-np',   v => String(v),          v => { P.nPart = v; if (pPos) buildParticles(); }, false);
+
+function toggle(id, key, after) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', () => {
+    P[key] = !P[key];
+    el.classList.toggle('on', P[key]);
+    if (after) after();
+  });
+}
+toggle('t-auto',    'auto');
+toggle('t-counter', 'counter', () => { dirtyField = true; dirtyVoid = true; lastInput = performance.now(); });
+toggle('t-lines',   'showLines', () => { if (fieldLines) fieldLines.visible = P.showLines; });
+toggle('t-void',    'showVoid',  () => { if (voidCloud) voidCloud.visible = P.showVoid;
+                                          nullBlob.visible = P.showVoid; nullRim.visible = P.showVoid; });
+toggle('t-cage',    'showCage',  () => { if (cageTicks) cageTicks.visible = P.showCage;
+                                          shellWire.visible = P.showCage; });
+toggle('t-run',     'run');
+toggle('t-paper',   'paper', applyTheme);
+
+addEventListener('keydown', e => {
+  if (e.key === 's' || e.key === 'S') {
+    document.querySelectorAll('.panel, #hint').forEach(n =>
+      n.style.display = n.style.display === 'none' ? '' : 'none');
+  }
+  if (e.code === 'Space') { e.preventDefault(); document.getElementById('t-run').click(); }
+});
+
+// ---------------------------------------------------------------- readouts
+const $ = id => document.getElementById(id);
+function refreshReadout() {
+  $('r-conf').textContent = (confinedFrac*100).toFixed(1) + '%';
+  $('b-conf').style.width = (confinedFrac*100).toFixed(1) + '%';
+  $('r-loss').textContent = escapeWindow.toFixed(1) + ' /s';
+  $('r-void').textContent = (voidFrac*100).toFixed(2) + '%';
+  $('b-void').style.width = Math.min(100, voidFrac*100*6).toFixed(1) + '%';
+  $('r-null').textContent = voidRmsPerp.toFixed(3) + ' \u00d7 ' + voidRmsPar.toFixed(3);
+  $('r-spin').textContent = (netTwist >= 0 ? '+' : '') + netTwist.toFixed(3);
+  $('r-wall').textContent = wallB.toFixed(2);
+  const beta = BETA_SCALE ? betaVal/BETA_SCALE : 1;
+  $('r-beta').textContent = beta.toFixed(2);
+  $('b-beta').style.width = Math.min(100, beta*50).toFixed(0) + '%';
+  const [txt, col] = classify();
+  $('r-state').textContent = txt;
+  $('r-state').style.color = col;
+}
+
+// ---------------------------------------------------------------- init + loop
+buildCage();
+buildTicks();
+calibrate();
+updateCores();
+buildParticles();
+buildVoidCloud();
+scanVoid();
+traceLines();
+applyTheme();
+updateCamera();
+
+let t0 = performance.now(), tAcc = 0, lastScan = 0, lastRead = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.033, Math.max(1e-4, (now - t0)/1000));
+  t0 = now;
+  tAcc += dt;
+
+  if (P.run) {
+    stepParticles(dt);
+    autoBalance(dt);
+    simTime += dt;
+    // fix the reference only once things have settled; 1.00 = the balanced default
+    if (BETA_SCALE === 0 && simTime > 6 && betaVal > 0) BETA_SCALE = betaVal;
+  }
+
+  // rescan the void a couple of times a second: it moves when the field moves
+  if (now - lastScan > 420 || (dirtyVoid && now - lastInput > 140)) {
+    scanVoid(); lastScan = now; dirtyVoid = false;
+    if (voidCloud) voidCloud.visible = P.showVoid;
+  }
+  // field lines are expensive; retrace only on a real change
+  if (dirtyField && now - lastInput > 220) {
+    traceLines(); applyTheme(); dirtyField = false; lastTraceConf = P.conf;
+  } else if (P.auto && Math.abs(P.conf - lastTraceConf) > 0.22 && now - lastInput > 600) {
+    traceLines(); applyTheme(); lastTraceConf = P.conf;
+  }
+
+  if (now - lastRead > 120) { refreshReadout(); lastRead = now; }
+
+  updateTicks(tAcc);
+  if (cageTicks) cageTicks.visible = P.showCage;
+  updateCamera();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
