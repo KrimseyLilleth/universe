@@ -52,6 +52,9 @@
 <body>
 <div id="panel">
   <div style="font-size:11px;color:#8a97a8;margin-bottom:4px">press <b>S</b> to hide / show all panels</div>
+  <!-- video walkthrough: set VIDEO_URL below; the link stays hidden while it is empty -->
+  <a id="ytlink" target="_blank" rel="noopener" style="display:none;margin:2px 0 6px;padding:5px 10px;border-radius:6px;background:#c4302b;color:#fff;font-weight:600;font-size:12px;text-decoration:none;width:max-content">&#9654; Watch the video walkthrough</a>
+  <script>{ const VIDEO_URL = ""; if(VIDEO_URL){ const a=document.getElementById("ytlink"); a.href=VIDEO_URL; a.style.display="block"; } }</script>
   <h1>Where the Tide Stands Still</h1>
   <p class="desk">The colours are the <b>actual tide</b> from NASA's GOT4.10c model (built from satellite altimetry, 0.5&deg; grid), animated through one cycle. The dots are every amphidromic point found in it: places where the phase of the tide <b>winds once around</b> a grid cell, so the height there is zero.</p>
   <p class="desk">Drag to rotate, scroll to zoom, click a dot or a list entry to fly there.</p>

@@ -34,6 +34,9 @@
 <body class="close">
 <div id="panel">
   <div style="font-size:11px;color:#8a97a8;margin-bottom:4px">press <b>S</b> to hide / show all panels</div>
+  <!-- video walkthrough: set VIDEO_URL below; the link stays hidden while it is empty -->
+  <a id="ytlink" target="_blank" rel="noopener" style="display:none;margin:2px 0 6px;padding:5px 10px;border-radius:6px;background:#c4302b;color:#fff;font-weight:600;font-size:12px;text-decoration:none;width:max-content">&#9654; Watch the video walkthrough</a>
+  <script>{ const VIDEO_URL = ""; if(VIDEO_URL){ const a=document.getElementById("ytlink"); a.href=VIDEO_URL; a.style.display="block"; } }</script>
   <h1>Amphidromic point: close-up and wide view</h1>
   <div class="row"><span>view</span><button id="mClose" class="on">Close-up</button><button id="mWide">Wide area</button></div>
 
