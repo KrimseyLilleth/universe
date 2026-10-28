@@ -1,19 +1,27 @@
-# Where the Tide Stands Still: Amphidromic Points
+# Amphidromic Points Explained Visually
 
-A beginner-friendly introduction to **amphidromic points**, the places in the ocean where the tide barely rises or falls even though high and low tide sweep around them like the hands of a clock. Two interactive models let you see it for yourself.
+Two interactive models that show what **amphidromic points** are, using a real map of the ocean tide.
 
 ![Where the Tide Stands Still](youtube_thumbnail_barrel.png)
 
-## Try them (they run in your browser, nothing to install)
+## What is an amphidromic point?
+
+It's a spot in the ocean where the sea level barely rises or falls, even though the tide is moving all around it.
+
+The tide doesn't just slosh in and out. In each ocean basin it travels around in a big circle, so high tide sweeps around one side while low tide sweeps around the other. Right in the middle, the two balance out and the water stays at about the same level. It's like the hands of a clock: they keep turning, but the centre they turn around never moves.
+
+There are dozens of these points around the world. Most of them turn counter-clockwise in the Northern Hemisphere and clockwise in the Southern, because of Earth's rotation.
+
+## Try the models (free, runs in your browser)
 
 | Model | What it shows | Live link |
 |---|---|---|
 | **Globe** | The real ocean tide (red = high, blue = low) with every major amphidromic point marked. Click anywhere to see a cross-section of the water, a tide gauge, and how the current underneath flips when the tide turns. | [amphidromic_earth.html](https://krimseylilleth.github.io/universe/liquid-universe/amphidromic_earth.html) |
-| **Close-up** | A simple "baby pool" with one flat wave going around it, showing how a still point in the middle is possible. Also a wide-area view of a tide wave travelling around a channel. | [amphidromic_closeup.html](https://krimseylilleth.github.io/universe/liquid-universe/amphidromic_closeup.html) |
+| **Close-up** | A simple "kiddie pool" with one flat wave going around it, showing how a still point in the middle is possible. Also a wide-area view of a tide wave travelling around a channel. | [amphidromic_closeup.html](https://krimseylilleth.github.io/universe/liquid-universe/amphidromic_closeup.html) |
 
-## Video walkthrough
+## Video
 
-*Coming soon.*
+*Amphidromic Points Explained Visually*: link coming soon.
 
 ## Controls
 
