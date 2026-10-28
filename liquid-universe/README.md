@@ -19,9 +19,10 @@ There are dozens of these points around the world. Most of them turn counter-clo
 | **Globe** | The real ocean tide (red = high, blue = low) with every major amphidromic point marked. Click anywhere to see a cross-section of the water, a tide gauge, and how the current underneath flips when the tide turns. | [amphidromic_earth.html](https://krimseylilleth.github.io/universe/liquid-universe/amphidromic_earth.html) |
 | **Close-up** | A simple "kiddie pool" with one flat wave going around it, showing how a still point in the middle is possible. Also a wide-area view of a tide wave travelling around a channel. | [amphidromic_closeup.html](https://krimseylilleth.github.io/universe/liquid-universe/amphidromic_closeup.html) |
 
-## Video
+## Video and article
 
-*Amphidromic Points Explained Visually*: link coming soon.
+- ▶ **Video:** [Amphidromic Points Explained Visually](https://youtu.be/8f6Mdba_Ftg) (YouTube)
+- 📝 **Article:** [Where the Tide Stands Still](https://dabblerouser.substack.com/p/where-the-tide-stands-still) (Substack)
 
 ## Controls
 

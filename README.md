@@ -10,6 +10,8 @@ Places in the ocean where the tide barely rises or falls, even though high and l
 
 - **Globe:** [open the model](https://krimseylilleth.github.io/universe/liquid-universe/amphidromic_earth.html)
 - **Kiddie pool / close-up:** [open the model](https://krimseylilleth.github.io/universe/liquid-universe/amphidromic_closeup.html)
+- **Video:** [Amphidromic Points Explained Visually](https://youtu.be/8f6Mdba_Ftg)
+- **Article:** [Where the Tide Stands Still](https://dabblerouser.substack.com/p/where-the-tide-stands-still)
 - **More info, controls and data sources:** [liquid-universe/README.md](liquid-universe/README.md)
 
 ## The Klimax Torus Ladder
