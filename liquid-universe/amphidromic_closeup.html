@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amphidromic Point Close-up</title>
+<style>
+  html, body { margin:0; height:100%; background:#05070b; color:#d8e2ee; font:13px/1.45 system-ui, sans-serif; overflow:hidden; }
+  #panel { position:fixed; top:12px; left:12px; width:330px; max-height:calc(100% - 24px); overflow:auto;
+    background:rgba(7,9,13,.86); border:1px solid #1b2330; border-radius:10px; padding:12px 14px; box-sizing:border-box; }
+  h1 { font-size:16px; margin:0 0 6px; color:#fff; }
+  h2 { font-size:12px; margin:12px 0 4px; color:#8fb3d9; text-transform:uppercase; letter-spacing:.06em; }
+  p { margin:4px 0; }
+  .row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+  .row > span:first-child { min-width:88px; }
+  button { background:#14202e; color:#d8e2ee; border:1px solid #2a3a50; border-radius:6px; padding:4px 10px; cursor:pointer; }
+  button:hover { background:#1d2d40; }
+  button.on { background:#2a4a6e; border-color:#5f8fc0; color:#fff; }
+  input[type=range] { flex:1; }
+  .mono { font-family:ui-monospace, Consolas, monospace; font-size:12px; white-space:pre; }
+  #right { position:fixed; top:12px; right:12px; width:370px; display:flex; flex-direction:column; gap:8px; }
+  .card { background:rgba(7,9,13,.86); border:1px solid #1b2330; border-radius:10px; padding:8px 10px; }
+  .card h2 { margin-top:0; }
+  canvas.plot { width:100%; display:block; }
+  #credit { position:fixed; right:10px; bottom:10px; z-index:9999; color:#fff; font-size:11px; text-align:right;
+    pointer-events:none; background:rgba(7,9,13,.78); padding:4px 9px; border-radius:7px; border:1px solid #1b2330; }
+  .k-c { color:#ff5a5a; } .k-n { color:#7cd67c; } .k-e { color:#5fb4ff; }
+  .wide-only, .close-only { display:none; }
+  body.wide .wide-only, body.close .close-only { display:block; }
+  body.wide .row.wide-only, body.close .row.close-only { display:flex; }
+  @media (max-width:900px) { #right { width:calc(100% - 24px); top:auto; bottom:52px; } #check-card { display:none; } #panel { width:calc(100% - 24px); max-height:38%; } }
+</style>
+</head>
+<body class="close">
+<div id="panel">
+  <div style="font-size:11px;color:#8a97a8;margin-bottom:4px">press <b>S</b> to hide / show all panels</div>
+  <h1>Amphidromic point: close-up and wide view</h1>
+  <div class="row"><span>view</span><button id="mClose" class="on">Close-up</button><button id="mWide">Wide area</button></div>
+
+  <div class="close-only">
+    <p>A round sea about 400 km across, with the M2 amphidromic point at its centre (the <span class="k-c">red post</span>).</p>
+    <p>Near the point, the sea surface is a <b>tilted flat sheet</b>. The tilt <b>direction</b> turns once every 12.42 h, like a plate wobbling on a pivot. The centre is the pivot, so its level never changes.</p>
+  </div>
+  <div class="wide-only">
+    <p>A North Sea-sized channel, 1400 km long and 450 km wide, 60 m deep, at 55&deg;N.</p>
+    <p>The tide comes in as a <b>Kelvin wave</b> (Earth's rotation pushes it against the coast on its right). It reflects off the far end and comes back hugging the <b>other</b> coast. Where the two waves cancel, you get a <b>row of amphidromic points</b> (<span class="k-c">red posts</span>) half a wavelength apart.</p>
+    <p>This is the textbook reason the North Sea has three points (G.I. Taylor, 1921).</p>
+    <p>Turn <b>reflection</b> down (energy lost to friction at the far end): the points slide toward one coast and can end up <b>on land</b>, which is what a "degenerate" point is (S Norway, E Ireland).</p>
+  </div>
+
+  <h2>Controls</h2>
+  <div class="row"><button id="play">Pause</button><span class="mono" id="clock"></span></div>
+  <div class="row"><span>speed</span><input id="speed" type="range" min="0.2" max="6" step="0.1" value="1.5"><span class="mono" id="spv"></span></div>
+  <div class="row"><span>height x</span><input id="exag" type="range" min="1" max="20" step="0.5" value="6"><span class="mono" id="exv"></span></div>
+  <div class="row"><span id="cutlab">cut angle</span><input id="cut" type="range" min="0" max="180" step="1" value="0"><span class="mono" id="cutv"></span></div>
+  <div class="row"><span>hemisphere</span><button id="sense">northern</button></div>
+  <div class="row close-only"><label><input type="checkbox" id="s2"> add the solar tide S2 (its own point, 30 km away)</label></div>
+  <div class="row wide-only"><span>reflection</span><input id="refl" type="range" min="0.03" max="1" step="0.01" value="1"><span class="mono" id="reflv"></span></div>
+  <div class="row wide-only"><label><input type="checkbox" id="cot" checked> cotidal lines (every 1 h of phase)</label></div>
+
+  <h2>What you are looking at</h2>
+  <div class="close-only">
+    <p><b>Gauge posts</b> stand at the centre and 160 km north, east, south and west, each with a floating buoy.</p>
+    <p>The <b>white arrow</b> sits on the coast at the spot that has high water right now.</p>
+    <p>Turn on <b>S2</b>: the solar tide has its own point a little way off, so the centre buoy starts to bob slightly.</p>
+  </div>
+  <div class="wide-only">
+    <p>Colour = water height. Dark lines = <b>cotidal lines</b>: places that get high water at the same time, one line per lunar hour. They all meet at the amphidromic points, like spokes.</p>
+    <p>Watch the red crest run <b>up one coast and back down the other</b>, circling each point.</p>
+    <p>The <b>yellow line</b> is the side-view cut, running along the channel. The gauge traces are for the first point and the two coasts beside it.</p>
+  </div>
+
+  <h2>Honest notes</h2>
+  <p class="close-only">The flat rotating sheet is exact close to <b>any</b> amphidromic point (first-order shape of a tide whose amplitude is zero there). Sizes are illustrative (1 m at the coast). Real seas wobble in an ellipse, not a circle. Horizontal currents are not drawn.</p>
+  <p class="wide-only">Two Kelvin waves are an exact solution of the linear rotating shallow-water equations in a straight channel. Wave speed c = sqrt(gH), rotation f = 2&Omega;sin(lat). The far closed end needs extra waves (Taylor's Poincar&eacute; modes), so it is not drawn; the channel just continues. The real North Sea is not a straight box, so the real points are not in a straight row.</p>
+</div>
+
+<div id="right">
+  <div class="card"><h2 id="sidetitle">Side view</h2><canvas class="plot" id="side" height="190"></canvas></div>
+  <div class="card"><h2>Tide gauges over 2 cycles</h2><canvas class="plot" id="ts" height="150"></canvas>
+    <div style="font-size:11px" id="tslegend"></div></div>
+  <div class="card" id="check-card"><h2>Live check</h2><div class="mono" id="check"></div></div>
+</div>
+<div id="credit">Krimsey Lilleth<br>klilleth@proton.me</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Every height in this page is  h(x,y,t) = Re[ Z(x,y) * exp(-i w t) ]  (+ S2 term in close-up).
+// x, y in km (close-up: x east, y north; wide: x along channel, y across). Z is complex (metres).
+// ---------------------------------------------------------------------------
+const wM = 2*Math.PI/12.4206, wS = 2*Math.PI/12.0;   // rad per hour
+let s = +1;                                          // +1 northern hemisphere, -1 southern
+let mode = "close";
+
+// ---- close-up: tilted plane around one point ----
+const R = 200, A = 1.0, B = 0.33, X0 = 22, Y0 = -21, GAUGE_R = 160;
+let useS2 = false;
+function Zclose(x, y){ return [A*x/R, A*s*y/R]; }               // A (r/R) e^{i s theta}
+function Zs2(x, y){ return [B*(x-X0)/R, B*s*(y-Y0)/R]; }
+
+// ---- wide: incoming + reflected Kelvin wave in a rotating channel ----
+const L = 1400, W = 450, H = 60, LAT = 55, a0 = 1.0;
+const OMEGA_E = 7.2921e-5, G = 9.81;
+const cw = Math.sqrt(G*H);                         // m/s
+const fC = 2*OMEGA_E*Math.sin(LAT*Math.PI/180);    // 1/s
+const Rd = cw/fC/1000;                             // km
+const lam = cw*12.4206*3600/1000;                  // km
+const kw = 2*Math.PI/lam;                          // 1/km
+let refl = 1.0;
+function Zwide(x, y){
+  // NH: wave moving +x hugs y=0 (coast on its right); reflected wave moving -x hugs y=W.
+  // SH: the coasts swap.
+  const yi = s>0 ? y : W-y, yr = s>0 ? W-y : y;
+  const ai = a0*Math.exp(-yi/Rd), ar = refl*a0*Math.exp(-yr/Rd);
+  return [ai*Math.cos(kw*x) + ar*Math.cos(kw*x), ai*Math.sin(kw*x) - ar*Math.sin(kw*x)];
+}
+function amphiPoints(){
+  // |Z|=0 needs equal amplitudes and opposite phases: k x = pi/2 + n pi, and
+  // exp(-yi/Rd) = refl*exp(-yr/Rd)  ->  yi = (W - Rd ln refl)/2 measured from the incoming wave's coast
+  const yi = (W - Rd*Math.log(refl))/2;
+  const y = s>0 ? yi : W-yi;
+  const out = [];
+  for(let n=0;;n++){ const x = (Math.PI/2 + n*Math.PI)/kw; if(x > L) break; out.push({x, y}); }
+  return out;
+}
+
+function Z(x, y){ return mode==="close" ? Zclose(x,y) : Zwide(x,y); }
+function height(x, y, t){
+  const z = Z(x,y);
+  let h = z[0]*Math.cos(wM*t) + z[1]*Math.sin(wM*t);   // Re[(zr + i zi)(cos - i sin)]
+  if(mode==="close" && useS2){ const q = Zs2(x,y); h += q[0]*Math.cos(wS*t) + q[1]*Math.sin(wS*t); }
+  return h;
+}
+// winding of arg Z around (x,y): +1 = high water circles counter-clockwise (seen from above)
+function winding(x, y, rad){
+  let tot = 0, prev = null;
+  for(let i=0;i<=72;i++){
+    const th = 2*Math.PI*i/72, z = Z(x+rad*Math.cos(th), y+rad*Math.sin(th));
+    const ph = Math.atan2(z[1], z[0]);
+    if(prev!==null){ let d = ph-prev; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; tot += d; }
+    prev = ph;
+  }
+  return Math.round(tot/(2*Math.PI));
+}
+
+// ---------------- scene ----------------
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070b12);
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 800);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(-10, 30, 15); scene.add(sun);
+
+const DEPTH = 6;
+let world = null;    // group holding everything mode-specific
+let wGeo, base, nV, Kscale, gauges = [], arrow, cutGeo, s2mark, amphiMarks = [];
+let Zcache = null;   // per-vertex complex amplitudes (wide mode)
+
+function mat(c, extra){ return new THREE.MeshPhongMaterial(Object.assign({color:c}, extra||{})); }
+// scene coords: X = x*K, Z = -y*K (y north / across channel)
+function toScene(x, y, h, ex){ return new THREE.Vector3(x*Kscale, h*ex, -y*Kscale); }
+
+function makeGauge(x, y, col, grp){
+  const g = new THREE.Group(); g.position.copy(toScene(x, y, 0, 1));
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,DEPTH+4,10), mat(col));
+  post.position.y = -DEPTH/2 + 2; g.add(post);
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.04,16), new THREE.MeshBasicMaterial({color:0xffffff})));
+  const buoy = new THREE.Mesh(new THREE.SphereGeometry(0.32,16,12), mat(0xffd34d, {emissive:0x332200}));
+  g.add(buoy); grp.add(g);
+  return {x, y, col, buoy, post:g};
+}
+
+function buildWaterGeo(geo){
+  nV = geo.attributes.position.count;
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(new Float32Array(nV*3), 3));
+  base = Float32Array.from(geo.attributes.position.array);
+  return geo;
+}
+
+function buildClose(){
+  Kscale = 0.1; const RW = R*Kscale;
+  const grp = new THREE.Group();
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(RW, 96), mat(0x2a2418));
+  floor.rotation.x = -Math.PI/2; floor.position.y = -DEPTH; grp.add(floor);
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(RW+0.02, RW+0.02, DEPTH+5, 128, 1, true), mat(0x6b5a3a, {side:THREE.BackSide}));
+  wall.position.y = -DEPTH/2 + 2.5; grp.add(wall);
+  const land = new THREE.Mesh(new THREE.RingGeometry(RW, RW+6, 128), mat(0x3d5a2e, {side:THREE.DoubleSide}));
+  land.rotation.x = -Math.PI/2; land.position.y = 2.5; grp.add(land);
+  const msl = new THREE.Mesh(new THREE.TorusGeometry(RW, 0.05, 6, 160), new THREE.MeshBasicMaterial({color:0x8899aa}));
+  msl.rotation.x = Math.PI/2; grp.add(msl);
+
+  const geo = new THREE.RingGeometry(0.001, RW, 128, 48); geo.rotateX(-Math.PI/2);
+  wGeo = buildWaterGeo(geo);
+  grp.add(new THREE.Mesh(wGeo, mat(0xffffff, {vertexColors:true, transparent:true, opacity:0.88, side:THREE.DoubleSide, shininess:80, specular:0x335577})));
+
+  gauges = [[0,0,0xff5a5a],[0,GAUGE_R,0x7cd67c],[GAUGE_R,0,0x5fb4ff],[0,-GAUGE_R,0xbbbbbb],[-GAUGE_R,0,0xbbbbbb]]
+    .map(([x,y,c])=>makeGauge(x,y,c,grp));
+
+  arrow = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2.6,10), new THREE.MeshBasicMaterial({color:0xffffff}));
+  shaft.rotation.z = Math.PI/2; shaft.position.x = -1.3;
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.4,1.0,14), new THREE.MeshBasicMaterial({color:0xffffff}));
+  tip.rotation.z = -Math.PI/2; tip.position.x = 0.4;
+  arrow.add(shaft, tip); grp.add(arrow);
+
+  s2mark = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,DEPTH+4,8), mat(0xc58cff));
+  s2mark.position.set(X0*Kscale, -DEPTH/2+2, -Y0*Kscale); s2mark.visible = useS2; grp.add(s2mark);
+
+  camera.position.set(-24, 17, 26); controls.target.set(0, -1, 0);
+  return grp;
+}
+
+function buildWide(){
+  Kscale = 0.02; const LW = L*Kscale, WW = W*Kscale;
+  const grp = new THREE.Group();
+  // centre the channel on the origin: shift group
+  grp.position.set(-LW/2, 0, WW/2);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(LW, WW), mat(0x2a2418));
+  floor.rotation.x = -Math.PI/2; floor.position.set(LW/2, -DEPTH, -WW/2); grp.add(floor);
+  [[0, "y=0"], [W, "y=W"]].forEach(([y])=>{
+    const bank = new THREE.Mesh(new THREE.BoxGeometry(LW, DEPTH+3.5, 6), mat(0x3d5a2e));
+    bank.position.set(LW/2, -DEPTH/2 + 1.75 - 0.0, y===0 ? 3 : -WW-3); grp.add(bank);
+  });
+  const geo = new THREE.PlaneGeometry(LW, WW, 280, 90); geo.rotateX(-Math.PI/2); geo.translate(LW/2, 0, -WW/2);
+  wGeo = buildWaterGeo(geo);
+  grp.add(new THREE.Mesh(wGeo, mat(0xffffff, {vertexColors:true, transparent:true, opacity:0.9, side:THREE.DoubleSide, shininess:80, specular:0x335577})));
+  // mean-sea-level lines on both banks
+  [0, W].forEach(y=>{
+    const g = new THREE.BufferGeometry().setFromPoints([toScene(0,y,0,1), toScene(L,y,0,1)]);
+    grp.add(new THREE.Line(g, new THREE.LineBasicMaterial({color:0x8899aa})));
+  });
+  // labels for the ends
+  grp.add(makeLabel("tide enters from the ocean", toScene(-40, W/2, 0, 1).add(new THREE.Vector3(0,3,0))));
+  grp.add(makeLabel("toward the closed end (not drawn)", toScene(L+40, W/2, 0, 1).add(new THREE.Vector3(0,3,0))));
+
+  amphiMarks = []; gauges = [];
+  rebuildWideMarkers(grp);
+  camera.position.set(-6, 22, 30); controls.target.set(0, -1, 0);
+  return grp;
+}
+function rebuildWideMarkers(grp){
+  amphiMarks.forEach(m=>grp.remove(m.post)); gauges.forEach(g=>grp.remove(g.post));
+  amphiMarks = amphiPoints().map(p=>{
+    const onLand = p.y < 0 || p.y > W;
+    const m = makeGauge(p.x, Math.max(-60, Math.min(W+60, p.y)), onLand ? 0xff9a3a : 0xff5a5a, grp);
+    m.onLand = onLand; m.trueY = p.y; return m;
+  });
+  const p0 = amphiPoints()[0];
+  gauges = [makeGauge(p0.x, 0, 0x7cd67c, grp), makeGauge(p0.x, W, 0x5fb4ff, grp)];
+  Zcache = null;
+}
+function makeLabel(text, pos){
+  const c = document.createElement("canvas"); c.width = 512; c.height = 64;
+  const g = c.getContext("2d"); g.fillStyle = "#d8e2ee"; g.font = "28px system-ui"; g.textAlign = "center"; g.fillText(text, 256, 42);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true}));
+  sp.scale.set(8, 1, 1); sp.position.copy(pos); return sp;
+}
+
+function setMode(m){
+  mode = m; document.body.className = m;
+  $("mClose").classList.toggle("on", m==="close"); $("mWide").classList.toggle("on", m==="wide");
+  if(world) scene.remove(world);
+  world = m==="close" ? buildClose() : buildWide();
+  scene.add(world);
+  cutGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+  world.add(new THREE.Line(cutGeo, new THREE.LineBasicMaterial({color:0xffe066})));
+  $("cutlab").textContent = m==="close" ? "cut angle" : "cut position";
+  $("cut").max = m==="close" ? 180 : 100; $("cut").value = m==="close" ? 0 : 50;
+  $("sidetitle").textContent = m==="close" ? "Side view (cut through the centre)" : "Side view (cut along the channel)";
+  $("tslegend").innerHTML = m==="close"
+    ? '<span class="k-c">&#9632; centre</span> &nbsp; <span class="k-n">&#9632; 160 km north</span> &nbsp; <span class="k-e">&#9632; 160 km east</span>'
+    : '<span class="k-c">&#9632; first point</span> &nbsp; <span class="k-n">&#9632; coast A, same spot</span> &nbsp; <span class="k-e">&#9632; coast B, same spot</span>';
+  hist.length = 0;
+}
+
+// ---------------- UI ----------------
+let playing = true, hours = 0;
+const $ = id=>document.getElementById(id);
+const hist = [];
+$("play").onclick = ()=>{ playing=!playing; $("play").textContent = playing?"Pause":"Play"; };
+$("sense").onclick = ()=>{ s=-s; $("sense").textContent = s>0?"northern":"southern"; if(mode==="wide") rebuildWideMarkers(world); hist.length=0; };
+$("s2").onchange = e=>{ useS2 = e.target.checked; if(s2mark) s2mark.visible = useS2; hist.length=0; };
+$("refl").oninput = ()=>{ refl = parseFloat($("refl").value); if(mode==="wide") rebuildWideMarkers(world); hist.length=0; };
+$("mClose").onclick = ()=>setMode("close");
+$("mWide").onclick = ()=>setMode("wide");
+
+function color(h){
+  const q = Math.max(-1, Math.min(1, h/1.2));
+  const b=[0.09,0.28,0.79], w=[0.85,0.9,0.95], r=[0.82,0.23,0.16];
+  const t = Math.abs(q), o = q<0?b:r;
+  return [w[0]+(o[0]-w[0])*t, w[1]+(o[1]-w[1])*t, w[2]+(o[2]-w[2])*t];
+}
+
+function setupCanvas(c){ const d = Math.min(devicePixelRatio,2); const w = c.clientWidth;
+  if(c.width !== Math.round(w*d)){ c.width = Math.round(w*d); c.height = Math.round(parseInt(c.getAttribute("height"))*d); c._d=d; }
+  const g = c.getContext("2d"); g.setTransform(c._d,0,0,c._d,0,0); return [g, w, c.height/c._d]; }
+
+// cut path: returns point (x,y) for u in [0,1], plus labels
+function cutPath(){
+  const v = parseFloat($("cut").value);
+  if(mode==="close"){
+    const a = v*Math.PI/180, ux = Math.cos(a), uy = Math.sin(a);
+    const lab = deg=>["E","NE","N","NW","W","SW","S","SE"][Math.round(((deg%360)+360)%360/45)%8];
+    return {pt:u=>[(2*u-1)*R*ux, (2*u-1)*R*uy], left:lab(v+180)+" coast", right:lab(v)+" coast", len:2*R, label:v+"deg"};
+  }
+  const y = v/100*W;
+  return {pt:u=>[u*L, y], left:"ocean end", right:"toward closed end", len:L, label:Math.round(y)+" km from coast A"};
+}
+
+function drawSide(t, ex){
+  const [g, Wc, Hc] = setupCanvas($("side"));
+  g.clearRect(0,0,Wc,Hc);
+  const cp = cutPath(), pad = 26, mid = Hc*0.42, pxPerM = ex*7;
+  const u2p = u=>pad + u*(Wc-2*pad), z2p = h=>mid - h*pxPerM;
+  g.fillStyle = "#2a2418"; g.fillRect(pad, Hc-30, Wc-2*pad, 30);
+  if(mode==="close"){ g.fillStyle = "#3d5a2e"; g.fillRect(0,0,pad,Hc); g.fillRect(Wc-pad,0,pad,Hc); }
+  const N = 160, pts = [];
+  for(let i=0;i<=N;i++){ const u=i/N, [x,y]=cp.pt(u); pts.push([u2p(u), z2p(height(x,y,t))]); }
+  g.beginPath(); g.moveTo(u2p(0), Hc-30); pts.forEach(p=>g.lineTo(...p)); g.lineTo(u2p(1), Hc-30); g.closePath();
+  g.fillStyle = "rgba(40,110,200,0.55)"; g.fill();
+  g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p)); g.strokeStyle="#cfe6ff"; g.lineWidth=2; g.stroke();
+  g.setLineDash([5,4]); g.strokeStyle="#8899aa"; g.lineWidth=1;
+  g.beginPath(); g.moveTo(pad, mid); g.lineTo(Wc-pad, mid); g.stroke(); g.setLineDash([]);
+  // posts where the cut passes an amphidromic point
+  const posts = mode==="close" ? [0.5] : amphiPoints().map(p=>p.x/L);
+  posts.forEach(u=>{ const [x,y]=cp.pt(u);
+    g.fillStyle="#ff5a5a"; g.fillRect(u2p(u)-1.5, 14, 3, Hc-44);
+    g.beginPath(); g.arc(u2p(u), z2p(height(x,y,t)), 4.5, 0, 7); g.fillStyle="#ffd34d"; g.fill(); });
+  g.fillStyle="#d8e2ee"; g.font="11px system-ui";
+  g.textAlign="left"; g.fillText(cp.left, pad+4, 12); g.textAlign="right"; g.fillText(cp.right, Wc-pad-4, 12);
+  g.textAlign="left"; g.fillStyle="#8899aa";
+  g.fillText(`height x${ex}   cut: ${cp.label}`, pad+4, Hc-8);
+  if(mode==="wide") { g.textAlign="right"; g.fillText("red = column of each point (cut only hits it when on its line)", Wc-pad-4, Hc-36); }
+}
+
+function drawTS(t){
+  const [g, Wc, Hc] = setupCanvas($("ts"));
+  g.clearRect(0,0,Wc,Hc);
+  const span = 2*12.4206, pad = 6, my = Hc/2, sy = (Hc/2-8)/1.6;
+  g.strokeStyle="#2a3646"; g.beginPath(); g.moveTo(0,my); g.lineTo(Wc,my); g.stroke();
+  g.fillStyle="#8899aa"; g.font="10px system-ui"; g.fillText("+1 m", 2, my-sy+10); g.fillText("-1 m", 2, my+sy-2);
+  const t0 = t - span;
+  [["c","#ff5a5a"],["n","#7cd67c"],["e","#5fb4ff"]].forEach(([k,col])=>{
+    g.beginPath(); let started=false;
+    for(const p of hist){ if(p.t<t0) continue; const x = pad + (p.t-t0)/span*(Wc-2*pad), y = my - p[k]*sy;
+      started? g.lineTo(x,y) : (g.moveTo(x,y), started=true); }
+    g.strokeStyle=col; g.lineWidth=1.8; g.stroke();
+  });
+}
+
+const f3 = v=>(v>=0?"+":"")+v.toFixed(3);
+let last = performance.now();
+function tick(now){
+  const dt = Math.min((now-last)/1000, 0.1); last = now;
+  if(playing) hours += dt*parseFloat($("speed").value);
+  const t = hours, ex = parseFloat($("exag").value);
+  $("spv").textContent = $("speed").value+" h/s"; $("exv").textContent = ex+"x";
+  $("reflv").textContent = refl.toFixed(2);
+  $("clock").textContent = `t = ${t.toFixed(2)} h`;
+  const cp = cutPath(); $("cutv").textContent = mode==="close" ? cp.label : $("cut").value+"%";
+
+  // water sheet
+  const pos = wGeo.attributes.position.array, col = wGeo.attributes.color.array;
+  if(mode==="wide" && !Zcache){
+    Zcache = new Float32Array(nV*3);
+    for(let i=0;i<nV;i++){ const x = base[3*i]/Kscale, y = -base[3*i+2]/Kscale, z = Z(x,y);
+      Zcache[3*i]=z[0]; Zcache[3*i+1]=z[1]; Zcache[3*i+2]=Math.atan2(z[1],z[0]); }
+  }
+  const showCot = $("cot").checked, cM = Math.cos(wM*t), sM = Math.sin(wM*t);
+  for(let i=0;i<nV;i++){
+    let h, dark = 0;
+    if(mode==="wide"){
+      h = Zcache[3*i]*cM + Zcache[3*i+1]*sM;
+      if(showCot){ const ph = Zcache[3*i+2]/(2*Math.PI)*12.4206; const fr = ph - Math.round(ph);
+        dark = Math.max(0, 1 - Math.abs(fr)/0.06); }
+    } else h = height(base[3*i]/Kscale, -base[3*i+2]/Kscale, t);
+    pos[3*i+1] = h*ex;
+    const c = color(h), k = 1 - 0.65*dark;
+    col[3*i]=c[0]*k; col[3*i+1]=c[1]*k; col[3*i+2]=c[2]*k;
+  }
+  wGeo.attributes.position.needsUpdate = true; wGeo.attributes.color.needsUpdate = true; wGeo.computeVertexNormals();
+
+  gauges.forEach(g=>{ g.buoy.position.y = height(g.x, g.y, t)*ex; });
+  amphiMarks.forEach(g=>{ g.buoy.position.y = height(g.x, g.trueY, t)*ex; g.buoy.visible = !g.onLand; });
+
+  // cut line
+  const cpa = cutGeo.attributes.position.array;
+  [[0,0],[1,3]].forEach(([u,o])=>{ const [x,y]=cp.pt(u); const v = toScene(x,y,height(x,y,t),ex);
+    cpa[o]=v.x; cpa[o+1]=v.y+0.06; cpa[o+2]=v.z; });
+  cutGeo.attributes.position.needsUpdate = true;
+
+  let chk = "";
+  if(mode==="close"){
+    const gx = (height(1,0,t)-height(-1,0,t))/2, gy = (height(0,1,t)-height(0,-1,t))/2;
+    const ang = Math.atan2(gy, gx), RW = R*Kscale;
+    arrow.position.set(Math.cos(ang)*(RW+2.2), height(Math.cos(ang)*R, Math.sin(ang)*R, t)*ex + 1.2, -Math.sin(ang)*(RW+2.2));
+    arrow.rotation.set(0, ang+Math.PI, 0);
+    const hc = height(0,0,t), hn = height(0,GAUGE_R,t), he = height(GAUGE_R,0,t), hs = height(0,-GAUGE_R,t), hw = height(-GAUGE_R,0,t);
+    if(playing){ hist.push({t, c:hc, n:hn, e:he}); }
+    chk = `centre height        ${f3(hc)} m\n`+
+      `N ${f3(hn)}  S ${f3(hs)}  sum ${f3(hn+hs)}\n`+
+      `E ${f3(he)}  W ${f3(hw)}  sum ${f3(he+hw)}\n`+
+      `  (opposite gauges cancel: flat sheet\n   pivoting on the centre${useS2?" - S2 shifts it":""})\n`+
+      `sqrt(hE^2+hN^2) = ${Math.hypot(he-hc, hn-hc).toFixed(3)} m\n`+
+      `  expected A*160/200 = ${(A*GAUGE_R/R).toFixed(3)} m${useS2?" (M2 only)":""}\n`+
+      `rotation (winding)   ${winding(0,0,20)>0?"counter-clockwise":"clockwise"}\n`+
+      `M2 period 12.4206 h${useS2?", S2 12.0000 h\nspring-neap beat = "+(1/(1/12-1/12.4206)/24).toFixed(2)+" days":""}`;
+  } else {
+    const pts = amphiPoints(), p0 = pts[0];
+    const hc = height(p0.x, p0.y, t), hA = height(p0.x, 0, t), hB = height(p0.x, W, t);
+    if(playing){ hist.push({t, c:hc, n:hA, e:hB}); }
+    const z0 = Z(p0.x, p0.y);
+    chk = `wave speed c = sqrt(9.81*${H}) = ${cw.toFixed(1)} m/s\n`+
+      `f = 2*Omega*sin(${LAT}) = ${fC.toExponential(3)} /s\n`+
+      `coast-hugging width Rd = c/f = ${Rd.toFixed(0)} km\n`+
+      `wavelength = c*12.4206 h = ${lam.toFixed(0)} km\n`+
+      `point spacing = half wavelength = ${(lam/2).toFixed(0)} km\n`+
+      `points: ${pts.map(p=>p.x.toFixed(0)).join(", ")} km along\n`+
+      `across: y = (W - Rd*ln r)/2 = ${p0.y.toFixed(0)} km  (W = ${W})\n`+
+      `  ${p0.y<0||p0.y>W ? "-> ON LAND: degenerate points (orange)" : "-> in the water"}\n`+
+      `|Z| at first point   ${Math.hypot(z0[0],z0[1]).toExponential(1)} m\n`+
+      `rotation (winding)   ${pts.map(p=>winding(p.x,p.y,25)>0?"CCW":"CW").join(", ")}\n`+
+      `  (${s>0?"northern: expect CCW":"southern: expect CW"})`;
+  }
+  while(hist.length && hist[0].t < t-2*12.4206-1) hist.shift();
+  $("check").textContent = chk;
+
+  drawSide(t, ex);
+  drawTS(t);
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+setMode("close");
+requestAnimationFrame(tick);
+addEventListener("resize", ()=>{ camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+</script>
+<script>
+// press S to hide / show all side panels (the credit line stays)
+document.addEventListener('keydown', e => {
+  if (e.key !== 's' && e.key !== 'S') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target; if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /^(text|number|search)$/.test(t.type)))) return;
+  for (const id of ['panel','right']) { const el = document.getElementById(id); if (el) el.style.display = el.style.display === 'none' ? '' : 'none'; }
+});
+</script>
+</body>
+</html>
