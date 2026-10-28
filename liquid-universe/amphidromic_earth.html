@@ -47,11 +47,14 @@
     #info h2 { font-size:11px; margin:8px 0 4px; }
     #info .row > span:first-child { min-width:84px; }
   }
+  #panelsBtn { display:none; position:fixed; left:8px; bottom:10px; z-index:9999; background:rgba(7,9,13,.86); color:#fff;
+    border:1px solid #2a3a50; border-radius:7px; padding:7px 12px; font-size:13px; }
+  @media (max-width:820px), (pointer:coarse) { #panelsBtn { display:block; } .keyhint { display:none; } }
 </style>
 </head>
 <body>
 <div id="panel">
-  <div style="font-size:11px;color:#8a97a8;margin-bottom:4px">press <b>S</b> to hide / show all panels</div>
+  <div class="keyhint" style="font-size:11px;color:#8a97a8;margin-bottom:4px">press <b>S</b> to hide / show all panels</div>
   <!-- video walkthrough: set VIDEO_URL below; the link stays hidden while it is empty -->
   <a id="ytlink" target="_blank" rel="noopener" style="display:none;margin:2px 0 6px;padding:5px 10px;border-radius:6px;background:#c4302b;color:#fff;font-weight:600;font-size:12px;text-decoration:none;width:max-content">&#9654; Watch the video walkthrough</a>
   <script>{ const VIDEO_URL = ""; if(VIDEO_URL){ const a=document.getElementById("ytlink"); a.href=VIDEO_URL; a.style.display="block"; } }</script>
@@ -106,6 +109,7 @@
 </div>
 
 <div id="legend">tide height: low <span class="bar"></span> high &nbsp;|&nbsp; <span class="ccw">&#9679; counter-clockwise</span> &nbsp; <span class="cw">&#9679; clockwise</span></div>
+<button id="panelsBtn" onclick="togglePanels()">Hide panels</button>
 <div id="credit">Krimsey Lilleth<br>klilleth@proton.me</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -601,11 +605,18 @@ addEventListener("resize", ()=>{ controls.maxDistance = Math.max(8, fitDistance(
 </script>
 <script>
 // press S to hide / show all side panels (the credit line stays)
+// (on phones and tablets the "Hide panels" button does the same)
+let panelsHidden = false;
+function togglePanels(){
+  panelsHidden = !panelsHidden;
+  for (const id of ['panel','info','legend']) { const el = document.getElementById(id); if (el) el.style.display = panelsHidden ? 'none' : ''; }
+  const b = document.getElementById('panelsBtn'); if (b) b.textContent = panelsHidden ? 'Show panels' : 'Hide panels';
+}
 document.addEventListener('keydown', e => {
   if (e.key !== 's' && e.key !== 'S') return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target; if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /^(text|number|search)$/.test(t.type)))) return;
-  for (const id of ['panel','info','legend']) { const el = document.getElementById(id); if (el) el.style.display = el.style.display === 'none' ? '' : 'none'; }
+  togglePanels();
 });
 </script>
 </body>
