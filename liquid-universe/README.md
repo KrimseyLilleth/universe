@@ -1,6 +1,6 @@
 # Amphidromic Points 101: Where the Tide Stands Still
 
-A beginner-friendly introduction to **amphidromic points**, with interactive models, the places in the ocean where the tide barely rises or falls, even though high and low tide sweep around them like the hands of a clock.
+A beginner-friendly introduction to **amphidromic points**, the places in the ocean where the tide barely rises or falls even though high and low tide sweep around them like the hands of a clock. Two interactive models let you see it for yourself.
 
 ![Amphidromic Points 101](youtube_thumbnail_barrel.png)
 
