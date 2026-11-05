@@ -7,14 +7,14 @@
 <style>
   :root { --bg:#05060a; --panel:rgba(12,14,22,0.86); --text:#dde3ee; --dim:#8a93a6; --accent:#ffc861; --line:#2a3042; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui, -apple-system, Segoe UI, sans-serif; overflow:hidden; }
-  #panel { position:absolute; top:12px; left:12px; width:300px; max-width:calc(100vw - 32px); max-height:calc(100vh - 60px); overflow-y:auto;
-           background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.45; box-sizing:border-box; }
-  h1 { font-size:16px; margin:0 0 6px; color:var(--accent); font-weight:600; }
+  #panel { position:absolute; top:12px; left:12px; width:360px; max-width:calc(100vw - 32px); max-height:calc(100vh - 60px); overflow-y:auto;
+           background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; font-size:15.5px; line-height:1.5; box-sizing:border-box; }
+  h1 { font-size:20px; margin:0 0 6px; color:var(--accent); font-weight:600; }
   p { margin:0 0 8px; color:var(--dim); }
   label { display:flex; justify-content:space-between; margin-top:8px; }
   input[type=range] { width:100%; }
   .btns { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
-  button { background:#1c2133; color:var(--text); border:1px solid #3a4260; border-radius:6px; padding:6px 10px; font-size:13px; cursor:pointer; }
+  button { background:#1c2133; color:var(--text); border:1px solid #3a4260; border-radius:6px; padding:8px 12px; font-size:15px; cursor:pointer; }
   button:hover { background:#262c44; }
   #readout { margin-top:10px; border-top:1px solid var(--line); padding-top:8px; font-variant-numeric:tabular-nums; }
   #readout div { display:flex; justify-content:space-between; }
@@ -23,9 +23,9 @@
   #gifStatus { margin-top:6px; color:var(--dim); min-height:1em; }
   #gifStatus a { color:var(--accent); }
   #toggle { display:none; }
-  #credit { position:absolute; right:12px; bottom:10px; font-size:12px; color:var(--dim); pointer-events:none; }
+  #credit { position:absolute; right:12px; bottom:10px; font-size:13px; color:var(--dim); pointer-events:none; }
   @media (max-width:600px) {
-    #panel { top:auto; bottom:34px; left:16px; right:16px; width:auto; max-height:45vh; font-size:12px; }
+    #panel { top:auto; bottom:34px; left:16px; right:16px; width:auto; max-height:50vh; font-size:14.5px; }
     #toggle { display:inline-block; }
     #panel.collapsed .body { display:none; }
   }
