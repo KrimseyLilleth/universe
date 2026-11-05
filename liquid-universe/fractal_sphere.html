@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fractal Sphere</title>
+<style>
+  :root { --bg:#05060a; --panel:rgba(12,14,22,0.86); --text:#dde3ee; --dim:#8a93a6; --accent:#ffc861; --line:#2a3042; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui, -apple-system, Segoe UI, sans-serif; overflow:hidden; }
+  #panel { position:absolute; top:12px; left:12px; width:300px; max-width:calc(100vw - 32px); max-height:calc(100vh - 60px); overflow-y:auto;
+           background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.45; box-sizing:border-box; }
+  h1 { font-size:16px; margin:0 0 6px; color:var(--accent); font-weight:600; }
+  p { margin:0 0 8px; color:var(--dim); }
+  label { display:flex; justify-content:space-between; margin-top:8px; }
+  input[type=range] { width:100%; }
+  .btns { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  button { background:#1c2133; color:var(--text); border:1px solid #3a4260; border-radius:6px; padding:6px 10px; font-size:13px; cursor:pointer; }
+  button:hover { background:#262c44; }
+  #readout { margin-top:10px; border-top:1px solid var(--line); padding-top:8px; font-variant-numeric:tabular-nums; }
+  #readout div { display:flex; justify-content:space-between; }
+  #readout span:first-child { color:var(--dim); }
+  .ok { color:#7fe08a; }
+  #gifStatus { margin-top:6px; color:var(--dim); min-height:1em; }
+  #gifStatus a { color:var(--accent); }
+  #toggle { display:none; }
+  #credit { position:absolute; right:12px; bottom:10px; font-size:12px; color:var(--dim); pointer-events:none; }
+  @media (max-width:600px) {
+    #panel { top:auto; bottom:34px; left:16px; right:16px; width:auto; max-height:45vh; font-size:12px; }
+    #toggle { display:inline-block; }
+    #panel.collapsed .body { display:none; }
+  }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>Fractal Sphere <button id="toggle" style="float:right;padding:2px 8px">–</button></h1>
+  <div class="body">
+    <p>One dot splits outward in every direction. At every step, each line divides and keeps growing outward. The tips are always the surface. The inside is everything that has already happened.</p>
+    <label><span>Time</span><span id="tVal">0.00</span></label>
+    <input id="tSlider" type="range" min="0" max="10" step="0.01" value="0">
+    <label><span>First split (directions)</span><span id="n0Val">12</span></label>
+    <input id="n0" type="range" min="4" max="40" step="1" value="12">
+    <label><span>Each line divides into</span><span id="kVal">3</span></label>
+    <input id="k" type="range" min="2" max="5" step="1" value="3">
+    <label><span>Steps</span><span id="stepsVal">8</span></label>
+    <input id="steps" type="range" min="3" max="8" step="1" value="8">
+    <label><span>Split angle</span><span id="angVal">57°</span></label>
+    <input id="ang" type="range" min="5" max="75" step="1" value="57">
+    <label><span>Speed</span><span id="spdVal">1.15</span></label>
+    <input id="spd" type="range" min="0.05" max="3" step="0.05" value="1.15">
+    <label style="justify-content:flex-start;gap:6px"><input id="foldOn" type="checkbox" checked> Fold the edge at the end</label>
+    <label><span>Fold depth</span><span id="depthVal">0.25</span></label>
+    <input id="depth" type="range" min="0.25" max="2.5" step="0.05" value="0.25">
+    <div class="btns">
+      <button id="play">Pause</button>
+      <button id="restart">Restart</button>
+      <button id="gifGrow">GIF: growth</button>
+      <button id="gifFold">GIF: folding</button>
+      <button id="gifAll">GIF: whole thing</button>
+    </div>
+    <div id="gifStatus"></div>
+    <div id="readout">
+      <div><span>Step</span><span id="rStep">0</span></div>
+      <div><span>Tips (counted)</span><span id="rTips">0</span></div>
+      <div><span>Tips = N₀·kⁿ</span><span id="rTipsF">0</span></div>
+      <div><span>Radius r</span><span id="rR">0</span></div>
+      <div><span>Sphere area 4πr²</span><span id="rA">0</span></div>
+      <div><span>Tips per unit area</span><span id="rD">0</span></div>
+      <div><span>Total line length</span><span id="rL">0</span></div>
+      <div><span>Fold level</span><span id="rF">—</span></div>
+      <div><span>Skin area ÷ smooth sphere</span><span id="rSkin">—</span></div>
+      <div><span>Room needed for first-split spacing</span><span id="rNeed">—</span></div>
+    </div>
+    <p style="margin-top:8px">The tips multiply by k every step, but a smooth sphere's area only grows as r². Exponential growth always outruns the area, so the surface has to crowd and fold. That folding is the fractal: it's how the edge makes room for the next split.</p>
+  </div>
+</div>
+<div id="credit">Krimsey Lilleth klilleth@proton.me</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+<script>
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const L = 1; // length of every line, every step
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x05060a);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 1000);
+camera.position.set(0, 1.5, 6);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.6;
+
+// seed dot
+const seed = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), new THREE.MeshBasicMaterial({ color:0xffffff }));
+scene.add(seed);
+
+const MAX_SEGS = 450000;
+
+// ---- folding skin: 4 levels of folds, each twice as fine and half as deep (folds on folds) ----
+// after the last level, every fold keeps deepening until time T_END
+// skin fades in over FADE; the first folds start at FOLD_START, while it is still fading
+const NOCT = 5, FADE = 1.5, FOLD_START = 0.8, FOLD_SPAN = FOLD_START + NOCT, K0 = 5, A0 = 0.12, NW = 16, T_END = 20, DEEPEN = 0.4;
+function rng(seed) {
+  return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const waves = [];
+{ const rand = rng(7);
+  for (let o = 0; o < NOCT; o++) for (let j = 0; j < NW; j++) {
+    const z = 2 * rand() - 1, ph = 2 * Math.PI * rand(), s = Math.sqrt(1 - z * z);
+    waves.push([s * Math.cos(ph), s * Math.sin(ph), z, 2 * Math.PI * rand()]);
+  } }
+// fold field at a unit direction: |random wave sum| gives sharp grooves and rounded ridges
+function foldField(x, y, z, out, off) {
+  for (let o = 0; o < NOCT; o++) {
+    const k = K0 * Math.pow(2, o);
+    let g = 0;
+    for (let j = 0; j < NW; j++) { const w = waves[o * NW + j]; g += Math.sin(k * (w[0] * x + w[1] * y + w[2] * z) + w[3]); }
+    out[off + o] = Math.abs(g * Math.sqrt(2 / NW)) - 0.798; // mean ≈ 0, so folds go both in and out
+  }
+}
+const MAX_DEPTH = 4; // deeper than this and the grooves would cross through the center
+const foldScale = d => Math.min(1.6, Math.max(0.1, 1 + d));
+const deepening = foldT =>1 + DEEPEN * Math.max(0, foldT - FOLD_SPAN);
+function foldAmps(foldT) {
+  const depth = Math.min(MAX_DEPTH, +$('depth').value * deepening(foldT)), amps = [];
+  for (let o = 0; o < NOCT; o++) {
+    const x = Math.max(0, Math.min(1, foldT - FOLD_START - o));
+    amps.push(depth * A0 / Math.pow(2, o) * x * x * (3 - 2 * x));
+  }
+  return amps;
+}
+
+let skinGeo = THREE.BufferGeometryUtils.mergeVertices((() => {
+  const g = new THREE.IcosahedronGeometry(1, 112); g.deleteAttribute('normal'); g.deleteAttribute('uv'); return g; })());
+const skinBase = skinGeo.attributes.position.array.slice();
+const skinN = skinBase.length / 3;
+const skinH = new Float32Array(skinN * NOCT);
+for (let v = 0; v < skinN; v++) foldField(skinBase[v*3], skinBase[v*3+1], skinBase[v*3+2], skinH, v * NOCT);
+skinGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(skinN * 3), 3));
+function meshArea(geo) {
+  const p = geo.attributes.position.array, idx = geo.index.array;
+  let s = 0;
+  for (let i = 0; i < idx.length; i += 3) {
+    const a = idx[i]*3, b = idx[i+1]*3, c = idx[i+2]*3;
+    const ux = p[b]-p[a], uy = p[b+1]-p[a+1], uz = p[b+2]-p[a+2];
+    const vx = p[c]-p[a], vy = p[c+1]-p[a+1], vz = p[c+2]-p[a+2];
+    s += 0.5 * Math.hypot(uy*vz - uz*vy, uz*vx - ux*vz, ux*vy - uy*vx);
+  }
+  return s;
+}
+const skinBaseArea = meshArea(skinGeo); // unit mesh, so the ratio is exactly 1 before folding
+const skinMat = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.55, metalness:0.05, transparent:true, opacity:0 });
+const skin = new THREE.Mesh(skinGeo, skinMat);
+skin.visible = false;
+skin.renderOrder = 2;
+scene.add(skin);
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
+keyLight.position.set(0.6, 1, 0.8);
+camera.add(keyLight);
+scene.add(camera);
+let skinKey = '', skinRatio = 1;
+const skinCol = new THREE.Color();
+
+function updateSkin(foldT) {
+  const R = model.genRadius[model.steps] * 0.995;
+  const amps = foldAmps(foldT);
+  const key = R + '|' + amps.join(',');
+  // skin is drawn after the lines, so as it fades in it covers them smoothly
+  const x = Math.min(1, foldT / FADE);
+  skinMat.opacity = x * x * (3 - 2 * x);
+  skinMat.depthWrite = skinMat.opacity >= 0.999;
+  if (key === skinKey) return;
+  skinKey = key;
+  const p = skinGeo.attributes.position.array, c = skinGeo.attributes.color.array;
+  const ampSum = amps.reduce((s, a) => s + a, 0);
+  for (let v = 0; v < skinN; v++) {
+    let d = 0;
+    for (let o = 0; o < NOCT; o++) d += amps[o] * skinH[v * NOCT + o];
+    const s = R * foldScale(d);
+    p[v*3] = skinBase[v*3] * s; p[v*3+1] = skinBase[v*3+1] * s; p[v*3+2] = skinBase[v*3+2] * s;
+    // same palette as the lines: a flat skin is the newest (outer) color, grooves sink toward the older gold as they deepen
+    const shade = Math.max(0, Math.min(1, 1 + 4 * (d - 1.5 * ampSum)));
+    skinCol.setHSL(0.11 + 0.52 * shade, 0.85, 0.6 - 0.12 * shade);
+    c[v*3] = skinCol.r; c[v*3+1] = skinCol.g; c[v*3+2] = skinCol.b;
+  }
+  skinGeo.attributes.position.needsUpdate = true;
+  skinGeo.attributes.color.needsUpdate = true;
+  skinGeo.computeVertexNormals();
+  skinGeo.computeBoundingSphere();
+  skinRatio = meshArea(skinGeo) / (skinBaseArea * R * R);
+}
+
+let lines = null, tips = null;
+let model = null;   // { segCount, genStart[], genRadius[], startPos, endPos, steps, n0 }
+let lastGen = -1;
+
+const $ = id => document.getElementById(id);
+
+function build() {
+  const n0 = +$('n0').value, K = +$('k').value;
+  const theta = +$('ang').value * Math.PI / 180;
+  const segsFor = s => n0 * (Math.pow(K, s + 1) - 1) / (K - 1);
+  let maxSteps = 3;
+  while (maxSteps < 12 && segsFor(maxSteps + 1) <= MAX_SEGS) maxSteps++;
+  $('steps').max = maxSteps;
+  if (+$('steps').value > maxSteps) $('steps').value = maxSteps;
+  const steps = +$('steps').value;
+  $('stepsVal').textContent = steps;
+  const total = segsFor(steps);
+  const startPos = new Float32Array(total * 3), endPos = new Float32Array(total * 3);
+  const colors = new Float32Array(total * 6);
+  const genStart = [0], genRadius = [];
+  let k = 0;
+  const col = new THREE.Color();
+
+  function addSeg(p, q, g) {
+    startPos.set(p, k * 3); endPos.set(q, k * 3);
+    col.setHSL(0.11 + 0.52 * g / steps, 0.85, 0.6 - 0.12 * g / steps);
+    colors.set([col.r * 0.6, col.g * 0.6, col.b * 0.6, col.r, col.g, col.b], k * 6);
+    k++;
+  }
+
+  // step 0: the dot splits outward in every direction (even spread on a sphere)
+  let front = [];
+  for (let i = 0; i < n0; i++) {
+    const y = 1 - 2 * (i + 0.5) / n0, rad = Math.sqrt(1 - y * y), a = i * GOLDEN_ANGLE;
+    const u = new THREE.Vector3(rad * Math.cos(a), y, rad * Math.sin(a));
+    const ref = Math.abs(u.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const s = new THREE.Vector3().crossVectors(u, ref).normalize().applyAxisAngle(u, a);
+    const q = u.clone().multiplyScalar(L);
+    addSeg([0, 0, 0], q.toArray(), 0);
+    front.push({ p:q, s });
+  }
+  genStart.push(k);
+  genRadius.push(L);
+
+  // each later step: every line divides into K, all leaning outward, fanned evenly around the line
+  for (let g = 1; g <= steps; g++) {
+    const next = [];
+    let rSum = 0;
+    for (const t of front) {
+      const u = t.p.clone().normalize();
+      const s = t.s.clone().addScaledVector(u, -t.s.dot(u)).normalize();
+      const w = new THREE.Vector3().crossVectors(u, s);
+      for (let j = 0; j < K; j++) {
+        const a = 2 * Math.PI * j / K;
+        const side = s.clone().multiplyScalar(Math.cos(a)).addScaledVector(w, Math.sin(a));
+        const d = u.clone().multiplyScalar(Math.cos(theta)).addScaledVector(side, Math.sin(theta));
+        const q = t.p.clone().addScaledVector(d, L);
+        addSeg(t.p.toArray(), q.toArray(), g);
+        // next fan is twisted by the golden angle, so splits never line up
+        next.push({ p:q, s:side.clone().applyAxisAngle(d, GOLDEN_ANGLE) });
+        rSum += q.length();
+      }
+    }
+    front = next;
+    genStart.push(k);
+    genRadius.push(rSum / next.length);
+  }
+
+  if (lines) { scene.remove(lines); lines.geometry.dispose(); }
+  if (tips) { scene.remove(tips); tips.geometry.dispose(); }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(total * 6), 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+    vertexColors:true, transparent:true, opacity:Math.min(0.85, 12000 / total + 0.25), blending:THREE.AdditiveBlending, depthWrite:false }));
+  lines.frustumCulled = false;
+  scene.add(lines);
+
+  const maxTips = n0 * Math.pow(K, steps);
+  const tgeo = new THREE.BufferGeometry();
+  tgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxTips * 3), 3));
+  tips = new THREE.Points(tgeo, new THREE.PointsMaterial({ color:0xffffff, size:0.05, transparent:true, opacity:0.6,
+    blending:THREE.AdditiveBlending, depthWrite:false }));
+  tips.frustumCulled = false;
+  scene.add(tips);
+
+  // fold field at every final tip, so the tips ride the skin
+  const ta = genStart[steps], nt = genStart[steps + 1] - ta;
+  const tipH = new Float32Array(nt * NOCT);
+  for (let i = 0; i < nt; i++) {
+    const x = endPos[(ta+i)*3], y = endPos[(ta+i)*3+1], z = endPos[(ta+i)*3+2], l = Math.hypot(x, y, z);
+    foldField(x / l, y / l, z / l, tipH, i * NOCT);
+  }
+
+  model = { segCount:k, genStart, genRadius, startPos, endPos, steps, n0, K, tipH };
+  lastGen = -1;
+  skinKey = '';
+  frameCamera(); // zoom is fixed to the final size, so the growth fills the view
+  $('tSlider').max = tMax();
+  if (T > tMax()) T = tMax();
+}
+
+// T in [0, steps+1]: lines of step g grow during g <= T < g+1; then the edge folds for FOLD_SPAN
+let T = 0, playing = true;
+const tMax = () => $('foldOn').checked ? Math.max(T_END, model.steps + 1 + FOLD_SPAN) : model.steps + 1;
+
+function setTime(t) {
+  const m = model;
+  T = Math.max(0, Math.min(tMax(), t));
+  const Tg = Math.min(m.steps + 1, T), foldT = T - Tg;
+  const g = Math.min(m.steps, Math.floor(Tg));
+  const f = Tg >= m.steps + 1 ? 1 : Tg - g;
+  const amps = foldT > 0 ? foldAmps(foldT) : null;
+  const pos = lines.geometry.attributes.position.array;
+
+  if (g !== lastGen) { // rewrite every finished step at full length
+    for (let i = 0; i < m.genStart[g]; i++) {
+      pos.set(m.startPos.subarray(i * 3, i * 3 + 3), i * 6);
+      pos.set(m.endPos.subarray(i * 3, i * 3 + 3), i * 6 + 3);
+    }
+    lastGen = g;
+  }
+  const a = m.genStart[g], b = m.genStart[g + 1];
+  const tp = tips.geometry.attributes.position.array;
+  let n = 0;
+  for (let i = a; i < b; i++) {
+    const sx = m.startPos[i*3], sy = m.startPos[i*3+1], sz = m.startPos[i*3+2];
+    let ex = sx + (m.endPos[i*3]   - sx) * f;
+    let ey = sy + (m.endPos[i*3+1] - sy) * f;
+    let ez = sz + (m.endPos[i*3+2] - sz) * f;
+    if (amps) {
+      let d = 0;
+      for (let o = 0; o < NOCT; o++) d += amps[o] * m.tipH[(i - a) * NOCT + o];
+      const s = foldScale(d);
+      ex *= s; ey *= s; ez *= s;
+    }
+    pos[i*6] = sx; pos[i*6+1] = sy; pos[i*6+2] = sz;
+    pos[i*6+3] = ex; pos[i*6+4] = ey; pos[i*6+5] = ez;
+    tp[n*3] = ex; tp[n*3+1] = ey; tp[n*3+2] = ez; n++;
+  }
+  lines.geometry.setDrawRange(0, b * 2);
+  lines.geometry.attributes.position.needsUpdate = true;
+  tips.geometry.setDrawRange(0, n);
+  tips.geometry.attributes.position.needsUpdate = true;
+
+  const r0 = g === 0 ? 0 : m.genRadius[g - 1];
+  const r = r0 + (m.genRadius[g] - r0) * f;
+
+  // live check numbers
+  const area = 4 * Math.PI * r * r;
+  const totalLen = (a + (b - a) * f) * L;
+  $('tVal').textContent = T.toFixed(2);
+  $('tSlider').value = T;
+  $('rStep').textContent = g;
+  $('rTips').textContent = (b - a).toLocaleString();
+  const formula = m.n0 * Math.pow(m.K, g);
+  $('rTipsF').innerHTML = formula.toLocaleString() + (formula === b - a ? ' <span class="ok">✓</span>' : ' ✗');
+  $('rR').textContent = r.toFixed(3);
+  $('rA').textContent = area.toFixed(2);
+  $('rD').textContent = area > 0 ? ((b - a) / area).toFixed(2) : '—';
+  $('rL').textContent = totalLen.toFixed(1);
+
+  skin.visible = foldT > 0;
+  if (foldT > 0) {
+    updateSkin(foldT);
+    $('rF').textContent = Math.max(0, Math.min(NOCT, foldT - FOLD_START)).toFixed(2) + ' / ' + NOCT +
+      (foldT > FOLD_SPAN ? ' · deepening ×' + deepening(foldT).toFixed(2) : '');
+    $('rSkin').textContent = '×' + skinRatio.toFixed(2);
+  } else {
+    $('rF').textContent = '—';
+    $('rSkin').textContent = '—';
+  }
+  // tips per area now, divided by tips per area at the first split (N₀ on a sphere of radius L)
+  $('rNeed').textContent = area > 0 ? '×' + (((b - a) / area) / (m.n0 / (4 * Math.PI * L * L))).toFixed(1) : '—';
+  return r;
+}
+
+function viewDistance() {
+  return model.genRadius[model.steps] * 2.6 + 1;
+}
+function frameCamera() {
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  camera.position.copy(controls.target).addScaledVector(dir, viewDistance());
+}
+
+// UI
+for (const [id, out, fmt] of [['n0','n0Val',v=>v], ['k','kVal',v=>v], ['steps','stepsVal',v=>v], ['ang','angVal',v=>v+'°'], ['spd','spdVal',v=>(+v).toFixed(2)]]) {
+  $(id).addEventListener('input', () => {
+    $(out).textContent = fmt($(id).value);
+    if (id !== 'spd') { build(); setTime(T); }
+  });
+}
+$('depth').addEventListener('input', () => { $('depthVal').textContent = (+$('depth').value).toFixed(2); setTime(T); });
+$('foldOn').addEventListener('change', () => { $('tSlider').max = tMax(); setTime(T); });
+$('tSlider').addEventListener('input', () => { playing = false; $('play').textContent = 'Play'; setTime(+$('tSlider').value); });
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? 'Pause' : 'Play'; };
+$('restart').onclick = () => { setTime(0); playing = true; $('play').textContent = 'Pause'; };
+$('toggle').onclick = () => { $('panel').classList.toggle('collapsed'); $('toggle').textContent = $('panel').classList.contains('collapsed') ? '+' : '–'; };
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// GIFs: growth (dot → full sphere) and folding (full sphere → end), square crop, paced by the Speed slider
+let recording = false;
+$('gifGrow').onclick = () => recordGif(0, model.steps + 1, 'fractal_sphere_growth.gif');
+$('gifFold').onclick = () => {
+  if (!$('foldOn').checked) { $('gifStatus').textContent = 'Turn on "Fold the edge at the end" first.'; return; }
+  recordGif(model.steps + 1, tMax(), 'fractal_sphere_folding.gif');
+};
+$('gifAll').onclick = () => recordGif(0, tMax(), 'fractal_sphere_whole.gif');
+async function recordGif(t0, t1, fileName) {
+  if (recording) return;
+  recording = true; playing = false; $('play').textContent = 'Play';
+  const status = $('gifStatus');
+  status.textContent = 'Rendering frames…';
+  try {
+    const workerSrc = await (await fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')).text();
+    const workerUrl = URL.createObjectURL(new Blob([workerSrc], { type:'application/javascript' }));
+    const S = 480, DELAY = 50, FRAMES = Math.max(1, Math.round((t1 - t0) * 1000 / DELAY / +$('spd').value));
+    const gif = new GIF({ workers:2, quality:8, width:S, height:S, workerScript:workerUrl, background:'#05060a' });
+    const c2 = document.createElement('canvas'); c2.width = c2.height = S;
+    const ctx = c2.getContext('2d');
+    const src = renderer.domElement;
+    const side = Math.min(src.width, src.height);
+    const angle0 = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+    for (let i = 0; i <= FRAMES; i++) {
+      setTime(t0 + i / FRAMES * (t1 - t0));
+      const want = viewDistance(), a = angle0 + i * 0.012;
+      camera.position.set(controls.target.x + want * Math.sin(a) * 0.97, controls.target.y + want * 0.25, controls.target.z + want * Math.cos(a) * 0.97);
+      camera.lookAt(controls.target);
+      renderer.render(scene, camera);
+      ctx.drawImage(src, (src.width - side) / 2, (src.height - side) / 2, side, side, 0, 0, S, S);
+      ctx.fillStyle = 'rgba(138,147,166,0.85)'; ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'right';
+      ctx.fillText('Krimsey Lilleth klilleth@proton.me', S - 8, S - 8);
+      gif.addFrame(ctx, { copy:true, delay: DELAY });
+      if (i % 20 === 0) { status.textContent = `Rendering frames… ${i}/${FRAMES}`; await new Promise(r => setTimeout(r, 0)); }
+    }
+    status.textContent = 'Encoding GIF…';
+    gif.on('progress', p => status.textContent = `Encoding GIF… ${Math.round(p * 100)}%`);
+    gif.on('finished', blob => {
+      const url = URL.createObjectURL(blob);
+      status.innerHTML = `Done (${(blob.size / 1e6).toFixed(1)} MB). <a href="${url}" download="${fileName}">Download GIF</a>`;
+      recording = false;
+    });
+    gif.render();
+  } catch (e) {
+    status.textContent = 'GIF failed: ' + e.message;
+    recording = false;
+  }
+};
+
+build();
+setTime(0);
+
+let prev = performance.now();
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (recording) return;
+  const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+  if (playing && T < tMax()) setTime(T + dt * +$('spd').value);  // stops at the end, no reset
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
