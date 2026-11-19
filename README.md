@@ -21,6 +21,12 @@ An endless zoom through nested Klimax tori. The Klimax torus is the one ring sha
 - **Animation:** [open the model](https://krimseylilleth.github.io/universe/liquid-universe/klimax_ladder_animation.html)
 - **Paper:** *The Klimax Torus: The unique aspect ratio whose radii are powers of φ at every scale* ([doi:10.5281/zenodo.20821925](https://doi.org/10.5281/zenodo.20821925))
 
+## Same Equation, Different Costume
+
+A plain-language tour of seven equations that show up again and again across gravity, waves, weather, ocean tides and quantum physics. Each one shows which symbol gets swapped to move between fields, and where the comparison stops working.
+
+- **Page:** [open it](https://krimseylilleth.github.io/universe/liquid-universe/formula_connections.html)
+
 ## Suggestions welcome
 
 Ideas or fixes? [Open an issue](https://github.com/KrimseyLilleth/universe/issues), or click the pencil icon on any file to propose an edit.

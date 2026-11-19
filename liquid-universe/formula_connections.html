@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Same Equation, Different Costume</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;1,400;1,500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+body{margin:0}
+/* Layout: one reading column; each "thread" is a section with a costume table (domain | equation | what got swapped). */
+:root {
+  --bg: #f2f5f7;
+  --surface: #ffffff;
+  --fg: #13202b;
+  --muted: #566775;
+  --line: #d3dce3;
+  --accent: #0d7482;   /* tide teal: headings, links */
+  --swap: #b3570a;     /* amber: the symbol that gets swapped */
+  --warn-bg: #fbf1e6;
+  --font-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, sans-serif;
+  --font-math: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c141b; --surface: #131f29; --fg: #e2eaef; --muted: #91a3b0; --line: #24343f;
+    --accent: #4fc2cf; --swap: #f0a24c; --warn-bg: #241b12; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c141b; --surface: #131f29; --fg: #e2eaef; --muted: #91a3b0; --line: #24343f;
+  --accent: #4fc2cf; --swap: #f0a24c; --warn-bg: #241b12; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 1rem; line-height: 1.6;
+}
+.wrap {
+  max-width: 50rem; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 3rem 4rem;
+  display: flex; flex-direction: column; gap: 3rem;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 6vw, 3rem); letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; max-width: 65ch; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.lede { font-size: 1.15rem; color: var(--muted); }
+header, section { display: flex; flex-direction: column; gap: 1rem; }
+.muted { color: var(--muted); }
+
+/* math */
+.eq { font-family: var(--font-math); font-size: 1.05em; white-space: nowrap; }
+.eq var, var { font-style: italic; }
+.sw { color: var(--swap); font-weight: 600; font-style: italic; }
+.big-eq {
+  font-family: var(--font-math); font-size: 1.35rem; text-align: center;
+  padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  overflow-x: auto;
+}
+
+/* costume tables */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); }
+th { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td:first-child { font-weight: 500; white-space: nowrap; }
+.costume td:nth-child(2) { white-space: nowrap; }
+
+/* matrix */
+.matrix th, .matrix td { text-align: center; }
+.matrix th:first-child, .matrix td:first-child { text-align: left; }
+.matrix td { font-size: 1.1rem; color: var(--accent); }
+.matrix td.no { color: var(--line); }
+.key { font-size: 0.85rem; color: var(--muted); }
+
+.thread-num { font-family: var(--font-display); color: var(--muted); font-weight: 500; }
+.breaks {
+  background: var(--warn-bg); border-left: 3px solid var(--swap);
+  padding: 0.75rem 1rem; border-radius: 0 6px 6px 0;
+}
+.breaks strong { color: var(--swap); }
+.tie {
+  border: 1px solid var(--accent); border-radius: 6px; padding: 0.75rem 1rem;
+}
+.tie strong { color: var(--accent); }
+ol.checks { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; max-width: 65ch; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
+footer { font-size: 0.85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Liquid Universe · formula connections</span>
+  <h1>Same Equation, Different Costume</h1>
+  <p class="lede">Gravity, tides, weather, heat, light and the quantum world look like separate subjects. Underneath, a handful of equations keep showing up again. Swap one symbol for another and a formula about planets becomes a formula about atoms, or a formula about heat becomes the core of quantum mechanics.</p>
+  <p>Each section below is one of those shared equations, called a <em>thread</em>. The tables show the same equation in different domains. The <span class="sw">orange</span> symbol is the one that got swapped. Every thread ends with where the comparison stops working, because that part matters as much as the match.</p>
+</header>
+
+<section aria-labelledby="map">
+  <h2 id="map">The map</h2>
+  <p class="muted">Which threads run through which domains.</p>
+  <div class="scroll">
+    <table class="matrix">
+      <thead><tr><th>Thread</th><th>Classical</th><th>Gravity</th><th>Fluids</th><th>Ocean</th><th>Weather</th><th>Quantum</th></tr></thead>
+      <tbody>
+        <tr><td>1 · Thinning with distance</td><td>●</td><td>●</td><td class="no">·</td><td>●</td><td class="no">·</td><td>●</td></tr>
+        <tr><td>2 · Waves</td><td>●</td><td>●</td><td>●</td><td>●</td><td>●</td><td>○</td></tr>
+        <tr><td>3 · The sideways push</td><td>●</td><td class="no">·</td><td>●</td><td>●</td><td>●</td><td>●</td></tr>
+        <tr><td>4 · Spreading out</td><td>●</td><td class="no">·</td><td>●</td><td>●</td><td>●</td><td>●</td></tr>
+        <tr><td>5 · Nothing gets lost</td><td>●</td><td class="no">·</td><td>●</td><td>●</td><td>●</td><td>●</td></tr>
+        <tr><td>6 · Things that swing</td><td>●</td><td>○</td><td class="no">·</td><td>●</td><td class="no">·</td><td>●</td></tr>
+        <tr><td>7 · Size-free numbers</td><td class="no">·</td><td class="no">·</td><td>●</td><td>●</td><td>●</td><td class="no">·</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="key">● the same equation, symbol for symbol &nbsp; ○ the same idea, but the equation changes shape</p>
+</section>
+
+<hr>
+
+<section aria-labelledby="t1">
+  <span class="thread-num">Thread 1</span>
+  <h2 id="t1">Thinning with distance</h2>
+  <p>Anything that spreads out from a point gets shared over the surface of a growing sphere. A sphere's surface is 4π<var>r</var>², so the strength drops as 1 over distance squared. This comes from geometry, which is why it shows up everywhere.</p>
+  <div class="scroll">
+    <table class="costume">
+      <thead><tr><th>Domain</th><th>Equation</th><th>What it describes</th></tr></thead>
+      <tbody>
+        <tr><td>Gravity (Newton)</td><td class="eq"><var>F</var> = <b class="sw">G</b> <b class="sw">m</b><sub>1</sub><b class="sw">m</b><sub>2</sub> / <var>r</var>²</td><td>Pull between two masses</td></tr>
+        <tr><td>Electricity (Coulomb)</td><td class="eq"><var>F</var> = <b class="sw">k</b> <b class="sw">q</b><sub>1</sub><b class="sw">q</b><sub>2</sub> / <var>r</var>²</td><td>Push or pull between two charges. Swap mass for charge, <var>G</var> for <var>k</var>.</td></tr>
+        <tr><td>Light</td><td class="eq"><var>I</var> = <b class="sw">P</b> / 4π<var>r</var>²</td><td>Brightness of a lamp or star at distance <var>r</var></td></tr>
+        <tr><td>Quantum (hydrogen atom)</td><td class="eq"><var>V</var> = −<var>k</var> <var>e</var>² / <var>r</var></td><td>The same Coulomb pull, written as energy, holds the electron to the proton</td></tr>
+        <tr><td>Ocean tides</td><td class="eq"><var>F</var><sub>tide</sub> ≈ 2<var>G</var><var>M</var><var>m</var><b class="sw">R</b> / <var>r</var><b class="sw">³</b></td><td>The <em>difference</em> in pull between the near and far side of Earth (<var>R</var> = Earth's radius)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tie">
+    <p><strong>The tide connection.</strong> Tides are not caused by the Moon's pull itself. They are caused by the pull being stronger on the side of Earth facing the Moon than on the far side. Taking that difference turns 1/<var>r</var>² into 1/<var>r</var>³. That one extra power explains a puzzle: the Sun pulls on Earth about <b>179 times</b> harder than the Moon does, yet the Sun's tide is only about <b>0.46 times</b> the Moon's. The Sun is so far away that its pull is almost the same on both sides of Earth.</p>
+  </div>
+  <p class="breaks"><strong>Where it breaks.</strong> Mass only comes in one sign, so gravity only attracts. Charge comes in plus and minus, so electricity can cancel out. And the strengths are wildly different: between two electrons, the electric push is about 10<sup>42</sup> times stronger than their gravity. Same shape, completely different scale.</p>
+</section>
+
+<section aria-labelledby="t2">
+  <span class="thread-num">Thread 2</span>
+  <h2 id="t2">Waves</h2>
+  <p>One equation describes almost every wave. It says: how fast the wave's height speeds up equals the wave speed squared times how curved the wave is.</p>
+  <div class="big-eq">∂²<var>u</var>/∂<var>t</var>² = <b class="sw">c</b>² ∇²<var>u</var></div>
+  <p>The only thing that changes between domains is what sets the speed <var>c</var>. Each domain fills it in with its own stiffness divided by its own heaviness.</p>
+  <div class="scroll">
+    <table class="costume">
+      <thead><tr><th>Domain</th><th>Wave speed</th><th>Stiffness ÷ heaviness</th></tr></thead>
+      <tbody>
+        <tr><td>Guitar string</td><td class="eq"><var>c</var> = √(<b class="sw">T</b> / <b class="sw">μ</b>)</td><td>String tension ÷ mass per length</td></tr>
+        <tr><td>Sound in air</td><td class="eq"><var>c</var> = √(<b class="sw">K</b> / <b class="sw">ρ</b>)</td><td>How hard air resists squeezing ÷ air density</td></tr>
+        <tr><td>Light</td><td class="eq"><var>c</var> = 1 / √(<b class="sw">μ₀ε₀</b>)</td><td>Two constants of empty space</td></tr>
+        <tr><td>Tides (shallow-water wave)</td><td class="eq"><var>c</var> = √(<b class="sw">g</b> <b class="sw">h</b>)</td><td>Gravity × ocean depth</td></tr>
+        <tr><td>Gravitational waves</td><td class="eq"><var>c</var> = speed of light</td><td>Ripples in space itself; in weak fields they obey the same wave equation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tie">
+    <p><strong>The tide connection.</strong> In ocean 4,000 m deep, √(9.81 × 4000) ≈ <b>198 m/s</b>, about <b>713 km/h</b>. The point under the Moon sweeps around the equator at about <b>1,600 km/h</b>. The tide wave cannot keep up, so it cannot simply follow the Moon around the planet. Instead the water in each ocean basin sloshes and turns, and that turning is what creates the amphidromic points.</p>
+  </div>
+  <p class="breaks"><strong>Where it breaks.</strong> Quantum "waves" (marked ○ in the map) follow a different equation, covered in Thread 4. Ocean waves at the beach are also different: in deep water their speed depends on wavelength, <span class="eq"><var>c</var> = √(<var>g</var>λ/2π)</span>, so long swells outrun short chop. Only very long waves like tides and tsunamis use √(<var>gh</var>).</p>
+</section>
+
+<section aria-labelledby="t3">
+  <span class="thread-num">Thread 3</span>
+  <h2 id="t3">The sideways push</h2>
+  <p>Some forces don't push you forward or back. They push you sideways, at right angles to the way you're moving. The math for this is a "cross product" (written ×), which always points sideways to both things it combines.</p>
+  <div class="scroll">
+    <table class="costume">
+      <thead><tr><th>Domain</th><th>Equation</th><th>What it describes</th></tr></thead>
+      <tbody>
+        <tr><td>Spinning Earth (Coriolis)</td><td class="eq"><var>a</var> = −2 <b class="sw">Ω</b> × <var>v</var></td><td>Anything moving across a spinning planet gets nudged sideways. Ω is Earth's spin.</td></tr>
+        <tr><td>Magnetism (Lorentz)</td><td class="eq"><var>F</var> = <b class="sw">q</b> <var>v</var> × <b class="sw">B</b></td><td>A moving charge in a magnetic field gets pushed sideways. Swap spin for magnetic field.</td></tr>
+        <tr><td>Weather (geostrophic wind)</td><td class="eq"><b class="sw">f</b> <var>v</var> = (1/ρ) ∂<b class="sw">p</b>/∂<var>x</var></td><td>Wind blows <em>along</em> lines of equal pressure instead of straight from high to low</td></tr>
+        <tr><td>Ocean currents</td><td class="eq"><b class="sw">f</b> <var>v</var> = <b class="sw">g</b> ∂<b class="sw">η</b>/∂<var>x</var></td><td>The same balance, with air pressure swapped for the tilt of the sea surface η</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Here <span class="eq"><var>f</var> = 2Ω sin(latitude)</span>. It's zero at the equator and largest at the poles, which is why hurricanes never form right on the equator.</p>
+  <div class="tie">
+    <p><strong>Where threads 2 and 3 meet.</strong> Divide the tide-wave speed from Thread 2 by the spin from Thread 3 and you get a distance called the <em>Rossby radius</em>: <span class="eq"><var>L</var> = √(<var>gh</var>) / <var>f</var></span>. At 45° latitude over 4,000 m of ocean it comes to roughly <b>1,900 km</b>. Below that size, rotation barely matters. Above it, rotation takes over and the water starts turning. That is about the size of the rotating tide systems around amphidromic points, and it's also why weather systems are hundreds to thousands of kilometres across.</p>
+  </div>
+  <p>The weather and ocean rows are a genuine substitution: replace <var>p</var>/ρ with <var>g</var>η and one formula becomes the other. The globe model in this project uses exactly this to calculate tidal currents from the slope of the tide.</p>
+  <p class="breaks"><strong>Where it breaks.</strong> Coriolis is not a real force. It appears because we measure from a spinning floor. Magnetism is a real force. They still match closely: a theorem by Joseph Larmor says a magnetic field acting on a charged system behaves like viewing it from a spinning frame (spinning at <var>qB</var>/2<var>m</var>), at least while the field is weak.</p>
+</section>
+
+<section aria-labelledby="t4">
+  <span class="thread-num">Thread 4</span>
+  <h2 id="t4">Spreading out</h2>
+  <p>Drop ink in water and it spreads. Heat a pan and the warmth creeps outward. Both follow the same equation: the change at a point depends on how different that point is from its neighbours.</p>
+  <div class="big-eq">∂<var>u</var>/∂<var>t</var> = <b class="sw">D</b> ∇²<var>u</var></div>
+  <div class="scroll">
+    <table class="costume">
+      <thead><tr><th>Domain</th><th>What spreads</th><th>What <var>D</var> becomes</th></tr></thead>
+      <tbody>
+        <tr><td>Heat</td><td>Temperature</td><td>How easily the material passes heat along</td></tr>
+        <tr><td>Ocean and air</td><td>Salt, pollution, moisture</td><td>Mixing rate</td></tr>
+        <tr><td>Fluids (Navier–Stokes)</td><td>Motion itself</td><td>Viscosity <var>ν</var>, the <span class="eq"><var>ν</var>∇²<var>v</var></span> term. Honey is "thick" because motion spreads through it fast.</td></tr>
+        <tr><td>Quantum (Schrödinger)</td><td>The wavefunction ψ</td><td class="eq"><b class="sw">iħ / 2m</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>That last row is the most surprising substitution here. The Schrödinger equation for a free particle, <span class="eq">∂ψ/∂<var>t</var> = (<var>iħ</var>/2<var>m</var>) ∇²ψ</span>, is the heat equation with the spreading rate replaced by an imaginary number. Physicists use this on purpose: a trick called "imaginary time" turns quantum problems into heat problems, solves them, and turns them back.</p>
+  <p class="breaks"><strong>Where it breaks.</strong> That little <var>i</var> changes everything about the behaviour. Heat only ever smooths out and fades; you can't un-spread it. With the <var>i</var>, the spreading turns into rippling, so quantum waves can interfere and run backwards in time just fine. Same skeleton, opposite personality.</p>
+</section>
+
+<section aria-labelledby="t5">
+  <span class="thread-num">Thread 5</span>
+  <h2 id="t5">Nothing gets lost</h2>
+  <p>A bookkeeping rule: if the amount of something in a region goes down, it must have flowed out through the edges. Nothing appears or vanishes.</p>
+  <div class="big-eq">∂<b class="sw">ρ</b>/∂<var>t</var> + ∇·(<b class="sw">ρ</b><var>v</var>) = 0</div>
+  <div class="scroll">
+    <table class="costume">
+      <thead><tr><th>Domain</th><th>What ρ counts</th></tr></thead>
+      <tbody>
+        <tr><td>Fluids, air</td><td>Mass of water or air</td></tr>
+        <tr><td>Electricity</td><td>Electric charge</td></tr>
+        <tr><td>Tides</td><td>Sea-surface height: <span class="eq">∂η/∂<var>t</var> + ∇·(<var>h</var><var>u</var>) = 0</span>. The tide rises where currents pile water in.</td></tr>
+        <tr><td>Quantum</td><td>Probability of finding the particle, |ψ|²</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tie">
+    <p><strong>Quantum mechanics written as a fluid.</strong> In 1926, Erwin Madelung showed that if you split the wavefunction into a size and a direction, the Schrödinger equation turns into two fluid equations: this bookkeeping equation, and a version of the fluid force equation with one extra term, called "quantum pressure." Read that way, a quantum particle's probability flows like a strange liquid.</p>
+  </div>
+  <p class="breaks"><strong>Where it breaks.</strong> The quantum "fluid" isn't made of anything; it describes probabilities. Experiments with bouncing oil droplets (Couder and Fort, 2006) looked like they reproduced quantum effects with real fluid, which caused real excitement. Later, more careful repeats did not reproduce the key double-slit result. It's a beautiful analogy and an active research area, but it hasn't replaced quantum mechanics.</p>
+</section>
+
+<section aria-labelledby="t6">
+  <span class="thread-num">Thread 6</span>
+  <h2 id="t6">Things that swing</h2>
+  <p>Pull something away from rest, let go, and it swings back and forth. A spring, a pendulum, sloshing water and an atom all share this.</p>
+  <div class="scroll">
+    <table class="costume">
+      <thead><tr><th>Domain</th><th>Equation</th><th>What it describes</th></tr></thead>
+      <tbody>
+        <tr><td>Spring</td><td class="eq"><var>x</var>(<var>t</var>) = <var>A</var> cos(<var>ωt</var> − <var>φ</var>)</td><td>Back-and-forth at a fixed rhythm <var>ω</var></td></tr>
+        <tr><td>Pendulum</td><td class="eq"><var>ω</var> = √(<b class="sw">g</b> / <b class="sw">L</b>)</td><td>Gravity plays the role of the spring</td></tr>
+        <tr><td>Tide prediction</td><td class="eq"><var>η</var>(<var>t</var>) = <b class="sw">Σ</b> <var>A</var><sub>i</sub> cos(<var>ω</var><sub>i</sub><var>t</var> − <var>φ</var><sub>i</sub>)</td><td>The tide is many swings added together: M2 (12.42 h), S2 (12.00 h), K1, O1…</td></tr>
+        <tr><td>Quantum oscillator</td><td class="eq"><var>E</var> = <var>ħω</var>(<b class="sw">n</b> + ½)</td><td>Same rhythm <var>ω</var>, but energy only comes in steps, <var>n</var> = 0, 1, 2…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tie">
+    <p><strong>The tide connection.</strong> The <var>φ</var> in the tide formula is the timing of high tide at each place. Draw lines joining places with the same <var>φ</var> and they all meet at one spot: the amphidromic point. And when a bay's own natural sloshing rhythm matches the tide's rhythm, the swings build up. The Bay of Fundy sloshes with a period near 13 hours, close to M2's 12.42 hours, which is why it has the biggest tides on Earth.</p>
+  </div>
+  <p class="breaks"><strong>Where it breaks.</strong> A real pendulum only follows the simple formula for small swings. And the quantum oscillator can never be fully still: even at <var>n</var> = 0 it keeps ½<var>ħω</var> of energy. A classical spring can stop completely.</p>
+</section>
+
+<section aria-labelledby="t7">
+  <span class="thread-num">Thread 7</span>
+  <h2 id="t7">Size-free numbers</h2>
+  <p>Some combinations of quantities cancel out all their units and leave a plain number. Two systems with the same plain number behave alike, even if one is a teacup and the other is an ocean.</p>
+  <div class="scroll">
+    <table class="costume">
+      <thead><tr><th>Number</th><th>Formula</th><th>Compares</th></tr></thead>
+      <tbody>
+        <tr><td>Reynolds</td><td class="eq"><var>Re</var> = <var>vL</var> / <var>ν</var></td><td>Momentum vs. thickness. Big means turbulent, small means smooth.</td></tr>
+        <tr><td>Froude</td><td class="eq"><var>Fr</var> = <var>v</var> / √(<var>gh</var>)</td><td>Flow speed vs. wave speed from Thread 2. Above 1, a ship's wake or a tidal bore forms.</td></tr>
+        <tr><td>Rossby</td><td class="eq"><var>Ro</var> = <var>U</var> / (<var>fL</var>)</td><td>Motion vs. Earth's spin from Thread 3. Small means rotation is in charge.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="breaks"><strong>Where it breaks, and a note on models.</strong> These numbers tell you when a small model honestly copies a big system. A real kiddie pool has a huge Rossby number, so Earth's spin does nothing to it. That's why lab scientists who want to copy ocean or weather behaviour put their water tank on a spinning table: it brings the Rossby number down to ocean-like values. A small model only stands in for the big system when the size-free numbers match.</p>
+</section>
+
+<hr>
+
+<section aria-labelledby="story">
+  <h2 id="story">The story they tell together</h2>
+  <p>Put the threads end to end and you get one chain from the Moon to the sea floor:</p>
+  <p>The Moon's gravity thins with distance (Thread 1), and the <em>difference</em> across Earth raises a tide. That tide travels as a shallow-water wave whose speed is set by depth (Thread 2), too slow to follow the Moon. Earth's spin pushes it sideways (Thread 3), and the Rossby radius sets how big the turning gets. The water is conserved as it moves (Thread 5), so the rises and falls balance around still centres. The result is a sum of rhythms (Thread 6), whose timing lines meet at amphidromic points. The same equations, with symbols swapped, also run weather, heat, light, and the electron in an atom.</p>
+  <p>The reason this keeps happening is not mysterious. Nature mostly has a few simple rules: things spread over spheres, disturbances travel, spinning frames push sideways, and stuff is conserved. Each rule has one simplest piece of math, so the same math keeps showing up.</p>
+</section>
+
+<section aria-labelledby="test">
+  <h2 id="test">Testing a substitution of your own</h2>
+  <p>Swapping symbols is a powerful way to find connections, and also the easiest way to fool yourself. A story is something you choose. A connection is something the math forces. Before trusting a new swap, check it:</p>
+  <ol class="checks">
+    <li><b>Do the units still work?</b> If you swap mass for charge, <var>G</var> must change to <var>k</var> too, or the equation stops making sense.</li>
+    <li><b>Is there a reason?</b> Every thread above has a cause (sphere geometry, conservation, a spinning frame). A matching number with no cause is usually a coincidence. With dozens of constants to choose from, some will match by chance.</li>
+    <li><b>Does it predict something you didn't put in?</b> The Rossby radius predicts the size of real systems. A good swap tells you something new you can go and measure.</li>
+    <li><b>Where does it stop?</b> Every real analogy has an edge. If you can't find one, you probably haven't looked hard enough.</li>
+  </ol>
+  <p class="breaks"><strong>The seam nobody has closed.</strong> Gravity and quantum physics share Thread 1's shape, but no one has a working theory of quantum gravity. Be very suspicious of any formula swap that claims to join them.</p>
+</section>
+
+<footer>
+  <p>Numbers use g = 9.81 m/s², Earth's spin Ω = 7.29 × 10⁻⁵ rad/s, and standard values for the masses and distances of the Sun and Moon. Part of <a href="https://github.com/KrimseyLilleth/universe">Liquid Universe</a>.</p>
+</footer>
+
+</div>
+</body>
+</html>
