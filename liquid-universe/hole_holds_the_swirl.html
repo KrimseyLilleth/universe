@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Hole Holds the Swirl</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;1,400;1,500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+body{margin:0}
+/* Layout: same reading column as "Same Equation, Different Costume"; adds a two-panel swirl diagram and a data table. */
+:root {
+  --bg: #f2f5f7;
+  --surface: #ffffff;
+  --fg: #13202b;
+  --muted: #566775;
+  --line: #d3dce3;
+  --accent: #0d7482;
+  --swap: #b3570a;
+  --warn-bg: #fbf1e6;
+  --font-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, sans-serif;
+  --font-math: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c141b; --surface: #131f29; --fg: #e2eaef; --muted: #91a3b0; --line: #24343f;
+    --accent: #4fc2cf; --swap: #f0a24c; --warn-bg: #241b12; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c141b; --surface: #131f29; --fg: #e2eaef; --muted: #91a3b0; --line: #24343f;
+  --accent: #4fc2cf; --swap: #f0a24c; --warn-bg: #241b12; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 1rem; line-height: 1.6; }
+.wrap {
+  max-width: 50rem; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 3rem 4rem;
+  display: flex; flex-direction: column; gap: 3rem;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 6vw, 3rem); letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; max-width: 65ch; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.lede { font-size: 1.15rem; color: var(--muted); }
+header, section { display: flex; flex-direction: column; gap: 1rem; }
+.muted { color: var(--muted); }
+.eq { font-family: var(--font-math); font-size: 1.05em; white-space: nowrap; }
+var { font-style: italic; }
+.sw { color: var(--swap); font-weight: 600; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); }
+th { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td:first-child { font-weight: 500; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+.thread-num { font-family: var(--font-display); color: var(--muted); font-weight: 500; }
+.breaks { background: var(--warn-bg); border-left: 3px solid var(--swap); padding: 0.75rem 1rem; border-radius: 0 6px 6px 0; }
+.breaks strong { color: var(--swap); }
+.tie { border: 1px solid var(--accent); border-radius: 6px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.tie strong { color: var(--accent); }
+hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
+footer { font-size: 0.85rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* swirl diagram: colour = time of high tide, going once round the colour wheel = one full tide cycle */
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1.5rem; }
+.panel { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; text-align: center; min-width: 0; }
+.wheel {
+  width: min(12rem, 70vw); aspect-ratio: 1; max-width: 100%; border-radius: 50%; position: relative;
+  background: conic-gradient(from 0deg, #e0524a, #e8a23a, #d9d54a, #59c26a, #3fb3c9, #4f6fd8, #a05bd0, #e0524a);
+}
+.wheel.disk::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, var(--bg) 0 4%, transparent 18%);
+}
+.wheel.disk::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; background: var(--fg); z-index: 1;
+}
+.wheel.ring {
+  -webkit-mask: radial-gradient(circle, transparent 0 34%, #000 35%);
+  mask: radial-gradient(circle, transparent 0 34%, #000 35%);
+}
+.panel-cap { font-size: 0.9rem; color: var(--muted); max-width: 22rem; }
+.panel-cap b { color: var(--fg); }
+@media (prefers-reduced-motion: no-preference) {
+  .wheel { animation: turn 12.42s linear infinite; }
+  @keyframes turn { to { transform: rotate(-360deg); } }
+}
+.result { font-family: var(--font-display); font-size: 1.25rem; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Liquid Universe · formula connections, part 2</span>
+  <h1>The Hole Holds the Swirl</h1>
+  <p class="lede">What happens to the seven threads from <a href="formula_connections.html">Same Equation, Different Costume</a> when you replace the sphere with a torus, the donut shape? Most of the formulas don't change at all. One thing changes completely, and Earth's real tides turn out to show it already.</p>
+</header>
+
+<section aria-labelledby="first">
+  <h2 id="first">First, a correction to the question</h2>
+  <p>The sphere in "thinning with distance" (Thread 1) is not the shape of the planet. It's the shape of empty space around a point: anything spreading out from a point covers a sphere's surface, whatever the object at the centre looks like. So a torus-shaped planet would still pull on a faraway moon by 1/<var>r</var>². From far enough away, every object looks like a point.</p>
+  <p>The torus matters in two other places: <b>close to the shape</b>, where its size and proportions count, and in its <b>topology</b>. Topology is the study of features that survive stretching, like the number of holes. A sphere has no hole and a torus has one. That turns out to be the part that matters.</p>
+</section>
+
+<hr>
+
+<section aria-labelledby="threads">
+  <h2 id="threads">The seven threads on a torus</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Thread</th><th>What changes on a torus</th></tr></thead>
+      <tbody>
+        <tr><td>1 · Thinning with distance</td><td>For a source shaped like a ring, the area around it is 4π²<var>R</var><var>r</var> instead of 4π<var>r</var>². That area grows with <var>r</var>, not <var>r</var>², so <b>near the ring</b> things fade as 1/<var>r</var>, the way they do around a long wire. Far away they fade as 1/<var>r</var>² again. The switch happens at a distance of about <var>R</var>, the ring's size.</td></tr>
+        <tr><td>2 · Waves</td><td>A wave running around a loop has to join up with itself, so only whole numbers of wavelengths fit: wavelength = 2π<var>R</var>/<var>n</var>. A torus has two loops (the long way round and the short way round), so its waves are labelled by <b>two whole numbers</b>. A guitar string works the same way, with one.</td></tr>
+        <tr><td>3 · The sideways push</td><td>On a torus spinning about its axis, the Coriolis setting becomes <span class="eq"><var>f</var> = 2Ω sin <var>θ</var></span>, where <var>θ</var> is the angle around the tube. That's the same formula as latitude. The top and bottom of the tube act like poles, and there are <b>two equators</b>, one on the outside and one on the inside of the ring.</td></tr>
+        <tr><td>4 · Spreading out</td><td>No change. Local laws only care about nearby points.</td></tr>
+        <tr><td>5 · Nothing gets lost</td><td>No change locally. But in a universe that is itself a torus (space that wraps around), a single charge on its own is impossible: its field lines have nowhere to end, so the total charge must be zero. Computer simulations of crystals and fluids use wrap-around space all the time and have to correct for this.</td></tr>
+        <tr><td>6 · Things that swing</td><td>No change, except that a ring-shaped sea has its own sloshing rhythms set by its loop length.</td></tr>
+        <tr><td>7 · Size-free numbers</td><td>A torus adds a new one: its <b>aspect ratio</b> <var>R</var>/<var>r</var>, how fat the ring is. Smoke rings, fusion reactors and ring magnets all depend on it.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>There is one more difference, about bending. Add up all the curvature of a sphere's surface and you always get 4π. For a torus the total is <b>zero</b>: the outer side curves like a ball, the inner side curves like a saddle, and the two cancel exactly. This is the Gauss–Bonnet theorem, and it holds however you squash the shape.</p>
+</section>
+
+<hr>
+
+<section aria-labelledby="new">
+  <span class="thread-num">What emerges</span>
+  <h2 id="new">The hole holds the swirl</h2>
+  <p>Picture the colour at each spot below as the time of high tide there. Going once around the colour wheel is one full tide cycle, 12.42 hours for the Moon's main tide.</p>
+  <div class="panels">
+    <div class="panel">
+      <div class="wheel disk" role="img" aria-label="A disk where the colour of high-tide time swirls once around a single still centre"></div>
+      <p class="panel-cap"><b>A sea with no hole.</b> If the timing swirls once around the edge, there must be a point inside where the swirl collapses. There the tide has no timing at all, which means no tide: an <b>amphidromic point</b>.</p>
+    </div>
+    <div class="panel">
+      <div class="wheel ring" role="img" aria-label="A ring where the colour of high-tide time swirls once around an empty hole"></div>
+      <p class="panel-cap"><b>A sea with a hole.</b> The same swirl wraps around the hole. No still point is needed anywhere in the water. <b>The hole is doing the job of the amphidromic point.</b></p>
+    </div>
+  </div>
+  <p>This is a rule of topology, not of tides, so it shows up wherever something swirls:</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Domain</th><th>On a sphere or disk</th><th>On a torus or ring</th></tr></thead>
+      <tbody>
+        <tr><td>Tides</td><td>A swirl of high-tide timing needs an amphidromic point</td><td>The swirl can wrap around the hole with no still point</td></tr>
+        <tr><td>Wind</td><td>The "hairy ball theorem": somewhere the wind must be calm (the swirl counts must total 2)</td><td>Wind can blow everywhere at once, with no calm spot (total 0)</td></tr>
+        <tr><td>Superfluids</td><td>Spin a bucket of superfluid helium and it fills with tiny whirlpools, each with an empty core</td><td>In a ring-shaped container it can flow round forever with no core at all</td></tr>
+        <tr><td>Superconductors</td><td>Magnetic field can only get through inside tiny whirlpools of current, each with an empty core</td><td>A current in a ring can flow for years with no whirlpool, and the field through the hole comes in fixed steps of <span class="eq"><var>h</var>/2<var>e</var></span></td></tr>
+        <tr><td>Quantum (Aharonov–Bohm)</td><td>A magnetic field the particle never touches has no effect</td><td>A field hidden inside the hole still shifts the particle's waves, because the waves wrap around it</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tie">
+    <p><strong>The deep match.</strong> An amphidromic point and the empty core of a quantum whirlpool are the same mathematical object: a spot where a wave's size drops to zero and its timing turns through one full cycle around it. Physicists John Nye and Michael Berry described these "phase singularities" in 1974 as a general feature of all waves. The rule above says each one can be swapped for a hole.</p>
+  </div>
+</section>
+
+<section aria-labelledby="earth">
+  <span class="thread-num">The test</span>
+  <h2 id="earth">Earth's ocean already has holes</h2>
+  <p>You don't need a torus planet to test this. Earth's ocean is not a full sphere of water. It is a sphere with holes punched in it, and the holes are the continents and islands. If the idea is right, some of the tide's swirl should be wrapped around landmasses instead of around still points in the water.</p>
+  <p>I measured this on the same NASA tide map the globe model uses. The script counts how many times high-tide timing laps as you walk around each still point and around each coastline. The topology rule is that the two totals cancel exactly. The real question is how much of the swirl ends up around land.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Tide</th><th class="num">Still points in water<br>(counter-clockwise / clockwise)</th><th class="num">Net in water</th><th class="num">Net around coasts</th></tr></thead>
+      <tbody>
+        <tr><td>M2 · Moon, 12.42 h</td><td class="num">53 / 21</td><td class="num">+32</td><td class="num">−32</td></tr>
+        <tr><td>S2 · Sun, 12.00 h</td><td class="num">69 / 38</td><td class="num">+31</td><td class="num">−31</td></tr>
+        <tr><td>K1 · daily, 23.93 h</td><td class="num">48 / 23</td><td class="num">+25</td><td class="num">−25</td></tr>
+        <tr><td>O1 · daily, 25.82 h</td><td class="num">44 / 25</td><td class="num">+19</td><td class="num">−19</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="result">On a water-only planet the still points would have to balance out to a net of zero. On Earth they are lopsided by 19 to 32, and the coastlines hold the rest.</p>
+  <p>Here's where the M2 swirl sits around land (+ is counter-clockwise, − is clockwise, each 1 is one full lap of high-tide timing around the coast):</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Landmass</th><th class="num">M2</th><th class="num">S2</th><th class="num">K1</th><th class="num">O1</th></tr></thead>
+      <tbody>
+        <tr><td>Africa + Eurasia</td><td class="num">−19</td><td class="num">−17</td><td class="num">−15</td><td class="num">−13</td></tr>
+        <tr><td>The Americas</td><td class="num">−10</td><td class="num">−7</td><td class="num">−4</td><td class="num">−3</td></tr>
+        <tr><td>Antarctica</td><td class="num">+2</td><td class="num">+4</td><td class="num">+1</td><td class="num">+1</td></tr>
+        <tr><td>Greenland</td><td class="num">−2</td><td class="num">−2</td><td class="num">−1</td><td class="num">−1</td></tr>
+        <tr><td>New Zealand (South Island)</td><td class="num">+1</td><td class="num">+1</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Madagascar</td><td class="num">+1</td><td class="num">+1</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Australia</td><td class="num">0</td><td class="num">+1</td><td class="num">+1</td><td class="num">+1</td></tr>
+        <tr><td>Japan (Honshu)</td><td class="num">−1</td><td class="num">−1</td><td class="num">−1</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tie">
+    <p><strong>New Zealand is the clean example.</strong> The main tide runs counter-clockwise all the way around New Zealand, and the measurement finds exactly +1 around it. Oceanographers call this a <em>degenerate amphidromic point</em>: the still point is "inside the land." In the language of this page, New Zealand is the hole of a torus, holding a swirl the water would otherwise need a still point for.</p>
+  </div>
+  <p class="breaks"><strong>What this does and doesn't prove.</strong> That water plus coasts adds to exactly zero is guaranteed by the maths, so it checks the script, not nature. The real findings are that the water alone is far from zero, and that the swirl sits around specific landmasses you can name and check, such as New Zealand. The map's 0.5° grid (about 55 km) also blurs things. It joins Great Britain and Sumatra onto Eurasia, splits New Zealand's two islands, and misses small islands entirely, so the counts for small landmasses are rough. Some still points in the water come in close pairs that may be grid noise, but each pair adds to zero, so they don't change the totals.</p>
+</section>
+
+<hr>
+
+<section aria-labelledby="klimax">
+  <h2 id="klimax">What about the Klimax torus?</h2>
+  <p>Everything in "the hole holds the swirl" is true for <b>any</b> donut, fat or thin. Topology ignores proportions, so the golden ratio plays no part in it. Proportions do matter in a few places, and there the Klimax torus (<var>R</var>/<var>r</var> = φ) gives one neat result.</p>
+  <p>Many fields fade as 1 over the distance from the ring's axis: the magnetic field inside a ring-shaped coil, the flow around a whirlpool, the field around a wire. For any of them, the strength at the inner equator divided by the strength at the outer equator is</p>
+  <p class="eq" style="font-size:1.25rem;white-space:normal">(<var>R</var> + <var>r</var>) / (<var>R</var> − <var>r</var>) = (φ + 1)/(φ − 1) = φ² ÷ φ⁻¹ = <b class="sw">φ³ ≈ 4.236</b></p>
+  <p>The surface curvature behaves the same way: the saddle on the inside is φ³ times as sharp as the bulge on the outside. And φ³ is exactly the step between rungs in the Klimax ladder.</p>
+  <p class="breaks"><strong>Where I'd push back.</strong> This follows straight from the definition. The torus's inner radius is <var>r</var>/φ and its outer radius is <var>r</var>φ², so any rule that compares inner to outer gives φ³. It shows the Klimax property through a physics formula, but nature doesn't single out φ here. For any aspect ratio <var>A</var>, the same ratio is (<var>A</var>+1)/(<var>A</var>−1), and φ is simply the one where it comes out as a power of φ. Real ring-shaped machines don't land on φ for this reason either. Compact fusion reactors ("spherical tokamaks") have aspect ratios of roughly 1.3 to 1.8, chosen for plasma stability and cost. And the textbook formula for smoke-ring speed only works for thin rings, much thinner than φ. To show φ is physically special, you'd need a quantity that is largest, smallest or most stable at <var>R</var>/<var>r</var> = φ, with a reason. That would be a genuine finding, and I haven't found one.</p>
+</section>
+
+<footer>
+  <p>Tide data: NASA GOT4.10c (R. Ray, NASA Goddard), 0.5° grid, the same file the globe model uses. The counts come from <code>tide_winding.py</code> in this folder, so anyone can rerun them.</p>
+  <p>Part of <a href="https://github.com/KrimseyLilleth/universe">Liquid Universe</a>.</p>
+</footer>
+
+</div>
+</body>
+</html>

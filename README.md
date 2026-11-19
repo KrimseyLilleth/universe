@@ -27,6 +27,13 @@ A plain-language tour of seven equations that show up again and again across gra
 
 - **Page:** [open it](https://krimseylilleth.github.io/universe/liquid-universe/formula_connections.html)
 
+## The Hole Holds the Swirl
+
+Part 2: the same threads redone on a torus instead of a sphere. A hole can do the job of an amphidromic point, and NASA tide data shows Earth's continents and islands already doing it (New Zealand is the clean example).
+
+- **Page:** [open it](https://krimseylilleth.github.io/universe/liquid-universe/hole_holds_the_swirl.html)
+- **Check the numbers yourself:** [liquid-universe/tide_winding.py](liquid-universe/tide_winding.py)
+
 ## Suggestions welcome
 
 Ideas or fixes? [Open an issue](https://github.com/KrimseyLilleth/universe/issues), or click the pencil icon on any file to propose an edit.
